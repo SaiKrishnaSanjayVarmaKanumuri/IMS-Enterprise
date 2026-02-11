@@ -1,0 +1,140 @@
+import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import { apiClient } from '../services/api';
+import { User, UserRole } from '../types';
+
+interface AuthContextType {
+  user: User | null;
+  token: string | null;
+  isLoading: boolean;
+  isAuthenticated: boolean;
+  login: (email: string, password: string) => Promise<void>;
+  logout: () => Promise<void>;
+  hasPermission: (permission: string) => boolean;
+  hasRole: (roles: UserRole | UserRole[]) => boolean;
+  refreshUser: () => Promise<void>;
+}
+
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  const [user, setUser] = useState<User | null>(null);
+  const [token, setToken] = useState<string | null>(localStorage.getItem('ims_token'));
+  const [isLoading, setIsLoading] = useState(true);
+
+  const loadUser = useCallback(async () => {
+    const storedToken = localStorage.getItem('ims_token');
+    
+    if (!storedToken) {
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      const response = await apiClient.auth.me();
+      if (response.data.success && response.data.data) {
+        setUser(((response.data.data as { user: User }).user));
+        setToken(storedToken);
+      } else {
+        localStorage.removeItem('ims_token');
+        localStorage.removeItem('ims_user');
+        setToken(null);
+        setUser(null);
+      }
+    } catch (error) {
+      console.error('Failed to load user:', error);
+      localStorage.removeItem('ims_token');
+      localStorage.removeItem('ims_user');
+      setToken(null);
+      setUser(null);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadUser();
+  }, [loadUser]);
+
+  const login = async (email: string, password: string): Promise<void> => {
+    try {
+      const response = await apiClient.auth.login(email, password);
+      
+      if (response.data.success && response.data.data) {
+        const data = response.data.data as { user: User; token: string };
+        const { user: userData, token: authToken } = data;
+        
+        localStorage.setItem('ims_token', authToken);
+        localStorage.setItem('ims_user', JSON.stringify(userData));
+        
+        setUser(userData);
+        setToken(authToken);
+      } else {
+        throw new Error(response.data.error || 'Login failed');
+      }
+    } catch (error) {
+      console.error('Login error:', error);
+      throw error;
+    }
+  };
+
+  const logout = async (): Promise<void> => {
+    try {
+      await apiClient.auth.logout();
+    } catch (error) {
+      console.error('Logout error:', error);
+    } finally {
+      localStorage.removeItem('ims_token');
+      localStorage.removeItem('ims_user');
+      setUser(null);
+      setToken(null);
+    }
+  };
+
+  const hasPermission = (permission: string): boolean => {
+    if (!user?.permissions) return false;
+    
+    if (user.permissions.includes('*')) return true;
+    
+    if (user.permissions.includes(permission)) return true;
+    
+    const [resource] = permission.split(':');
+    if (user.permissions.includes(`${resource}:*`)) return true;
+    
+    return false;
+  };
+
+  const hasRole = (roles: UserRole | UserRole[]): boolean => {
+    if (!user?.role) return false;
+    
+    const roleArray = Array.isArray(roles) ? roles : [roles];
+    return roleArray.includes(user.role.name as UserRole);
+  };
+
+  const refreshUser = async (): Promise<void> => {
+    await loadUser();
+  };
+
+  const value: AuthContextType = {
+    user,
+    token,
+    isLoading,
+    isAuthenticated: !!user && !!token,
+    login,
+    logout,
+    hasPermission,
+    hasRole,
+    refreshUser,
+  };
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+};
+
+export const useAuth = (): AuthContextType => {
+  const context = useContext(AuthContext);
+  if (context === undefined) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
+};
+
+export default AuthContext;
