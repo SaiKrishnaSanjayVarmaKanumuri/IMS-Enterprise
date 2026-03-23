@@ -1,19 +1,20 @@
-import React, { useAuth } from "../contexts/AuthContext";
+import { useAuth } from "../contexts/AuthContext";
 import { UserRole } from "../types";
 import { Navigate, Outlet } from "react-router-dom";
+import { ReactNode, FC } from "react";
 
 interface ProtectedRouteProps {
     allowedRoles?: UserRole[];
     requiredPermission?: string;
-    children?: React.ReactNode;
+    children?: ReactNode;
 }
 
-const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
+const ProtectedRoute: FC<ProtectedRouteProps> = ({
     allowedRoles,
     requiredPermission,
     children,
 }) => {
-    const { user, isAuthenticated, isLoading, hasPermission, hasRole } =
+    const { isAuthenticated, isLoading, hasPermission, hasRole } =
         useAuth();
 
     if (isLoading) {

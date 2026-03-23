@@ -160,17 +160,26 @@ router.post(
                     lastName,
                     role: role as UserRole,
                     isActive: true,
-                    assignedSites: siteIds
-                        ? {
-                              connect: siteIds.map((id: string) => ({ id })),
-                          }
-                        : undefined,
                 },
                 include: {
                     roleObj: true,
                     assignedSites: true,
                 },
             });
+
+            // Bidirectional sync: Assign user to sites (update Site.assignedUsers)
+            if (siteIds && siteIds.length > 0) {
+                for (const siteId of siteIds) {
+                    await prisma.site.update({
+                        where: { id: siteId },
+                        data: {
+                            assignedUsers: {
+                                connect: { id: user.id },
+                            },
+                        },
+                    });
+                }
+            }
 
             logAudit(
                 adminUser.id,
@@ -337,11 +346,51 @@ router.patch(
                 updateData.passwordHash = passwordHash;
             }
 
-            // Handle site assignments
+            // Handle site assignments - bidirectional sync
             if (siteIds !== undefined) {
-                updateData.assignedSites = {
-                    set: siteIds.map((sid: string) => ({ id: sid })),
-                };
+                // First, get all sites that currently have this user assigned
+                const currentSites = await prisma.site.findMany({
+                    where: {
+                        assignedUsers: {
+                            some: { id },
+                        },
+                    },
+                });
+
+                // Disconnect user from all current sites
+                for (const site of currentSites) {
+                    await prisma.site.update({
+                        where: { id: site.id },
+                        data: {
+                            assignedUsers: {
+                                disconnect: { id },
+                            },
+                        },
+                    });
+                }
+
+                // Then connect to new sites (update both User.assignedSites and Site.assignedUsers)
+                if (siteIds.length > 0) {
+                    updateData.assignedSites = {
+                        set: siteIds.map((sid: string) => ({ id: sid })),
+                    };
+
+                    // Also update Site.assignedUsers for each new site
+                    for (const siteId of siteIds) {
+                        await prisma.site.update({
+                            where: { id: siteId },
+                            data: {
+                                assignedUsers: {
+                                    connect: { id },
+                                },
+                            },
+                        });
+                    }
+                } else {
+                    updateData.assignedSites = {
+                        set: [],
+                    };
+                }
             }
 
             const updatedUser = await prisma.user.update({

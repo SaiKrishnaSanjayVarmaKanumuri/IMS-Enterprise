@@ -67,6 +67,18 @@ const RoleManagement: React.FC = () => {
     const [isCustomRole, setIsCustomRole] = useState(false);
     const [showCredentials, setShowCredentials] = useState(false);
     const [createdUser, setCreatedUser] = useState<CreatedUser | null>(null);
+    const [showUsersModal, setShowUsersModal] = useState(false);
+    const [selectedRoleUsers, setSelectedRoleUsers] = useState<
+        { id: string; firstName: string; lastName: string; email: string }[]
+    >([]);
+    const [selectedRoleName, setSelectedRoleName] = useState("");
+    const [showResetModal, setShowResetModal] = useState(false);
+    const [resetUser, setResetUser] = useState<{
+        id: string;
+        firstName: string;
+        lastName: string;
+    } | null>(null);
+    const [newPassword, setNewPassword] = useState("");
     const [formData, setFormData] = useState({
         name: "",
         description: "",
@@ -160,11 +172,27 @@ const RoleManagement: React.FC = () => {
 
     const handleDelete = async (roleId: string) => {
         if (!confirm("Are you sure you want to delete this role?")) return;
+
         try {
             await apiClient.roles.delete(roleId);
             fetchData();
-        } catch (error) {
+        } catch (error: unknown) {
             console.error("Failed to delete role:", error);
+
+            const axiosErr = error as {
+                response?: { data?: { error?: string; code?: string } };
+            };
+
+            // Check for role in use error
+            if (axiosErr.response?.data?.code === "ROLE_IN_USE") {
+                alert(
+                    "Cannot delete this role because it has users assigned. Please reassign or delete those users first.",
+                );
+            } else {
+                const errorMsg =
+                    axiosErr.response?.data?.error || "Failed to delete role";
+                alert(errorMsg);
+            }
         }
     };
 
@@ -183,6 +211,46 @@ const RoleManagement: React.FC = () => {
         setIsCustomRole(false);
         setShowCredentials(false);
         setCreatedUser(null);
+    };
+
+    const handleViewUsers = async (
+        roleName: string,
+        roleDisplayName: string,
+    ) => {
+        try {
+            const response = await apiClient.users.list({ role: roleName });
+            if (response.data.success) {
+                const data = response.data.data as {
+                    users: {
+                        id: string;
+                        firstName: string;
+                        lastName: string;
+                        email: string;
+                    }[];
+                };
+                setSelectedRoleUsers(data.users);
+                setSelectedRoleName(roleDisplayName);
+                setShowUsersModal(true);
+            }
+        } catch (error) {
+            console.error("Failed to fetch users:", error);
+            alert("Failed to load users with this role");
+        }
+    };
+
+    const handleResetPassword = async () => {
+        if (!resetUser) return;
+        try {
+            const generatedPassword = Math.random().toString(36).slice(-8);
+            await apiClient.users.resetPassword(
+                resetUser.id,
+                generatedPassword,
+            );
+            setNewPassword(generatedPassword);
+        } catch (error) {
+            console.error("Failed to reset password:", error);
+            alert("Failed to reset password");
+        }
     };
 
     // Auto-select permissions and description when role type changes
@@ -671,6 +739,9 @@ const RoleManagement: React.FC = () => {
                                 Description
                             </th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                                Users
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                                 Permissions
                             </th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
@@ -690,6 +761,22 @@ const RoleManagement: React.FC = () => {
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                     {role.description}
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap">
+                                    <button
+                                        onClick={() =>
+                                            handleViewUsers(
+                                                role.name,
+                                                ROLE_DISPLAY_NAMES[
+                                                    role.name as keyof typeof ROLE_DISPLAY_NAMES
+                                                ] || role.name,
+                                            )
+                                        }
+                                        className="text-blue-600 hover:text-blue-900 font-medium"
+                                    >
+                                        {role.userCount || 0} user
+                                        {(role.userCount ?? 0) !== 1 ? "s" : ""}
+                                    </button>
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap">
                                     <span className="text-sm text-gray-500">
@@ -716,6 +803,216 @@ const RoleManagement: React.FC = () => {
                     </tbody>
                 </table>
             </div>
+
+            {/* Users Modal */}
+            {showUsersModal && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                    <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+                        <div className="p-6">
+                            <div className="flex justify-between items-center mb-4">
+                                <h3 className="text-lg font-semibold text-gray-900">
+                                    Users with Role: {selectedRoleName}
+                                </h3>
+                                <button
+                                    onClick={() => setShowUsersModal(false)}
+                                    className="text-gray-400 hover:text-gray-600"
+                                >
+                                    <svg
+                                        className="w-6 h-6"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        viewBox="0 0 24 24"
+                                    >
+                                        <path
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            strokeWidth={2}
+                                            d="M6 18L18 6M6 6l12 12"
+                                        />
+                                    </svg>
+                                </button>
+                            </div>
+
+                            {selectedRoleUsers.length === 0 ? (
+                                <p className="text-gray-500 text-center py-4">
+                                    No users with this role
+                                </p>
+                            ) : (
+                                <div className="space-y-3 max-h-96 overflow-y-auto">
+                                    {selectedRoleUsers.map((user) => (
+                                        <div
+                                            key={user.id}
+                                            className="border rounded-lg p-3"
+                                        >
+                                            <div className="flex justify-between items-start">
+                                                <div>
+                                                    <p className="font-medium text-gray-900">
+                                                        {user.firstName}{" "}
+                                                        {user.lastName}
+                                                    </p>
+                                                    <p className="text-sm text-gray-500">
+                                                        {user.email}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            <div className="flex space-x-3 mt-2 pt-2 border-t">
+                                                <button
+                                                    onClick={() => {
+                                                        setResetUser({
+                                                            id: user.id,
+                                                            firstName:
+                                                                user.firstName,
+                                                            lastName:
+                                                                user.lastName,
+                                                        });
+                                                        setNewPassword("");
+                                                        setShowResetModal(true);
+                                                    }}
+                                                    className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                                                >
+                                                    Reset Password
+                                                </button>
+                                                <span className="text-gray-300">
+                                                    |
+                                                </span>
+                                                <button
+                                                    onClick={async () => {
+                                                        if (
+                                                            confirm(
+                                                                `Are you sure you want to delete user "${user.firstName} ${user.lastName}"? This cannot be undone.`,
+                                                            )
+                                                        ) {
+                                                            try {
+                                                                await apiClient.users.delete(
+                                                                    user.id,
+                                                                );
+                                                                alert(
+                                                                    "User deleted successfully!",
+                                                                );
+                                                                // Refresh the list
+                                                                const response =
+                                                                    await apiClient.users.list(
+                                                                        {
+                                                                            role: selectedRoleName,
+                                                                        },
+                                                                    );
+                                                                if (
+                                                                    response
+                                                                        .data
+                                                                        .success
+                                                                ) {
+                                                                    const data =
+                                                                        response
+                                                                            .data
+                                                                            .data as {
+                                                                            users: {
+                                                                                id: string;
+                                                                                firstName: string;
+                                                                                lastName: string;
+                                                                                email: string;
+                                                                            }[];
+                                                                        };
+                                                                    setSelectedRoleUsers(
+                                                                        data.users,
+                                                                    );
+                                                                }
+                                                            } catch (err) {
+                                                                alert(
+                                                                    "Failed to delete user. They may have associated records.",
+                                                                );
+                                                            }
+                                                        }
+                                                    }}
+                                                    className="text-red-600 hover:text-red-800 text-sm font-medium"
+                                                >
+                                                    Delete
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+
+                            <div className="mt-4 flex justify-end">
+                                <button
+                                    onClick={() => setShowUsersModal(false)}
+                                    className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300"
+                                >
+                                    Close
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Password Reset Modal */}
+            {showResetModal && resetUser && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                    <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 p-6">
+                        <div className="flex justify-between items-center mb-4">
+                            <h3 className="text-lg font-semibold text-gray-900">
+                                Reset Password
+                            </h3>
+                            <button
+                                onClick={() => setShowResetModal(false)}
+                                className="text-gray-400 hover:text-gray-600"
+                            >
+                                <svg
+                                    className="w-6 h-6"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    viewBox="0 0 24 24"
+                                >
+                                    <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        strokeWidth={2}
+                                        d="M6 18L18 6M6 6l12 12"
+                                    />
+                                </svg>
+                            </button>
+                        </div>
+
+                        <p className="text-gray-600 mb-4">
+                            Reset password for:{" "}
+                            <strong>
+                                {resetUser.firstName} {resetUser.lastName}
+                            </strong>
+                        </p>
+
+                        {newPassword ? (
+                            <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
+                                <p className="text-green-800 font-medium mb-2">
+                                    New Password Generated!
+                                </p>
+                                <div className="bg-white p-3 rounded border border-green-300">
+                                    <p className="font-mono text-lg text-center font-bold text-green-800">
+                                        {newPassword}
+                                    </p>
+                                </div>
+                                <p className="text-green-700 text-sm mt-2">
+                                    Share this password with the user.
+                                </p>
+                            </div>
+                        ) : (
+                            <button
+                                onClick={handleResetPassword}
+                                className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 mb-4"
+                            >
+                                Generate New Password
+                            </button>
+                        )}
+
+                        <button
+                            onClick={() => setShowResetModal(false)}
+                            className="w-full px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300"
+                        >
+                            Close
+                        </button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

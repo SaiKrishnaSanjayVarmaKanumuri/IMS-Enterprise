@@ -74,7 +74,21 @@ const login = async (req, res) => {
         // Log successful login
         (0, logger_js_1.logAudit)(user.id, "auth.login_success", "auth", user.id, { email: user.email, role: user.role }, "success");
         logger_js_1.logger.info(`User ${user.email} logged in successfully`);
-        // Return user info and token
+        // Get assigned sites and permissions for the user
+        const assignedSites = await prisma.user.findUnique({
+            where: { id: user.id },
+            include: {
+                assignedSites: true,
+                roleObj: {
+                    include: {
+                        permissions: true,
+                    },
+                },
+            },
+        });
+        // Extract permission names
+        const permissions = assignedSites?.roleObj?.permissions.map((p) => p.name) || [];
+        // Return user info and token (include full role object, permissions and assignedSites)
         res.json({
             success: true,
             data: {
@@ -83,8 +97,11 @@ const login = async (req, res) => {
                     email: user.email,
                     firstName: user.firstName,
                     lastName: user.lastName,
-                    role: user.role,
+                    role: user.roleObj, // Return full role object
                     roleDescription: user.roleObj?.description || "",
+                    isActive: user.isActive,
+                    permissions: permissions,
+                    assignedSites: assignedSites?.assignedSites || [],
                 },
                 token,
             },

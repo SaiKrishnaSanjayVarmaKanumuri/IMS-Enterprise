@@ -30,8 +30,6 @@ api.interceptors.response.use(
         return response;
     },
     async (error: AxiosError<ApiResponse<unknown>>) => {
-        const originalRequest = error.config;
-
         // Handle 401 Unauthorized
         if (error.response?.status === 401) {
             // Clear local storage and redirect to login
@@ -361,6 +359,106 @@ export const apiClient = {
 
         markAlertRead: (id: string) =>
             api.patch<ApiResponse<null>>(`/inventory/alerts/${id}/read`),
+    },
+
+    // Audit endpoints
+    audit: {
+        list: (params?: {
+            action?: string;
+            resource?: string;
+            status?: string;
+            startDate?: string;
+            endDate?: string;
+            page?: number;
+            limit?: number;
+        }) =>
+            api.get<
+                ApiResponse<{
+                    logs: unknown[];
+                    pagination: { total: number; pages: number };
+                }>
+            >("/audit", { params }),
+
+        get: (id: string) =>
+            api.get<ApiResponse<{ log: unknown }>>(`/audit/${id}`),
+    },
+
+    // ─── Vendor Endpoints ─────────────────────────────────────────────────
+    vendors: {
+        list: (params?: { search?: string; isActive?: boolean; page?: number; limit?: number }) =>
+            api.get<ApiResponse<{ vendors: unknown[]; pagination: unknown }>>("/vendors", { params }),
+        get: (id: string) => api.get<ApiResponse<{ vendor: unknown }>>(`/vendors/${id}`),
+        create: (data: unknown) => api.post<ApiResponse<{ vendor: unknown }>>("/vendors", data),
+        update: (id: string, data: unknown) => api.patch<ApiResponse<{ vendor: unknown }>>(`/vendors/${id}`, data),
+        delete: (id: string) => api.delete<ApiResponse<null>>(`/vendors/${id}`),
+    },
+
+    // ─── Product Catalog Endpoints ────────────────────────────────────────
+    products: {
+        list: (params?: { search?: string; categoryId?: string; isActive?: boolean; page?: number; limit?: number }) =>
+            api.get<ApiResponse<{ products: unknown[]; pagination: unknown }>>("/products", { params }),
+        get: (id: string) => api.get<ApiResponse<{ product: unknown }>>(`/products/${id}`),
+        create: (data: unknown) => api.post<ApiResponse<{ product: unknown }>>("/products", data),
+        update: (id: string, data: unknown) => api.patch<ApiResponse<{ product: unknown }>>(`/products/${id}`, data),
+        delete: (id: string) => api.delete<ApiResponse<null>>(`/products/${id}`),
+        categories: () => api.get<ApiResponse<{ categories: unknown[] }>>("/products/categories/list"),
+        createCategory: (data: unknown) => api.post<ApiResponse<{ category: unknown }>>("/products/categories", data),
+        units: () => api.get<ApiResponse<{ units: unknown[] }>>("/products/units/list"),
+        createUnit: (data: unknown) => api.post<ApiResponse<{ unit: unknown }>>("/products/units", data),
+    },
+
+    // ─── Purchase Order Endpoints ─────────────────────────────────────────
+    purchaseOrders: {
+        list: (params?: { status?: string; vendorId?: string; siteId?: string; page?: number; limit?: number }) =>
+            api.get<ApiResponse<{ purchaseOrders: unknown[]; pagination: unknown }>>("/purchase-orders", { params }),
+        get: (id: string) => api.get<ApiResponse<{ purchaseOrder: unknown }>>(`/purchase-orders/${id}`),
+        create: (data: unknown) => api.post<ApiResponse<{ purchaseOrder: unknown }>>("/purchase-orders", data),
+        confirm: (id: string) => api.patch<ApiResponse<{ purchaseOrder: unknown }>>(`/purchase-orders/${id}/confirm`),
+        receive: (id: string, data: unknown) => api.post<ApiResponse<null>>(`/purchase-orders/${id}/receive`, data),
+        cancel: (id: string) => api.patch<ApiResponse<null>>(`/purchase-orders/${id}/cancel`),
+        downloadPDF: (id: string) => `/api/reports/purchase-orders/${id}/pdf`,
+    },
+
+    // ─── Analytics Endpoints ──────────────────────────────────────────────
+    analytics: {
+        kpis: (params?: { siteId?: string }) =>
+            api.get<ApiResponse<Record<string, number>>>("/analytics/kpis", { params }),
+        stockTrends: (params?: { siteId?: string; days?: number }) =>
+            api.get<ApiResponse<{ trends: unknown[] }>>("/analytics/stock-trends", { params }),
+        topConsumed: (params?: { siteId?: string; days?: number; limit?: number }) =>
+            api.get<ApiResponse<{ items: unknown[] }>>("/analytics/top-consumed", { params }),
+        requestDistribution: (params?: { siteId?: string }) =>
+            api.get<ApiResponse<{ distribution: unknown[] }>>("/analytics/request-distribution", { params }),
+        lowStock: (params?: { siteId?: string }) =>
+            api.get<ApiResponse<{ items: unknown[] }>>("/analytics/low-stock", { params }),
+        inventoryValuation: (params?: { siteId?: string }) =>
+            api.get<ApiResponse<{ items: unknown[]; totalValue: number; byCategory: unknown[] }>>("/analytics/inventory-valuation", { params }),
+        vendorPerformance: () =>
+            api.get<ApiResponse<{ vendors: unknown[] }>>("/analytics/vendor-performance"),
+    },
+
+    // ─── Notifications Endpoints ─────────────────────────────────────────
+    notifications: {
+        list: (params?: { isRead?: boolean; page?: number; limit?: number }) =>
+            api.get<ApiResponse<{ notifications: unknown[]; unreadCount: number; pagination: unknown }>>("/notifications", { params }),
+        markRead: (id: string) => api.patch<ApiResponse<null>>(`/notifications/${id}/read`),
+        markAllRead: () => api.patch<ApiResponse<null>>("/notifications/mark-all-read"),
+        delete: (id: string) => api.delete<ApiResponse<null>>(`/notifications/${id}`),
+    },
+
+    // ─── Reports/Export Endpoints ─────────────────────────────────────────
+    reports: {
+        inventoryCSV: (params?: { siteId?: string }) =>
+            `/api/reports/inventory/csv${params?.siteId ? `?siteId=${params.siteId}` : ""}`,
+        purchaseOrdersCSV: (params?: { siteId?: string; status?: string }) => {
+            const q = new URLSearchParams(params as Record<string, string>).toString();
+            return `/api/reports/purchase-orders/csv${q ? `?${q}` : ""}`;
+        },
+        requestsCSV: (params?: { siteId?: string; status?: string }) => {
+            const q = new URLSearchParams(params as Record<string, string>).toString();
+            return `/api/reports/requests/csv${q ? `?${q}` : ""}`;
+        },
+        auditLogsCSV: () => `/api/reports/audit-logs/csv`,
     },
 
     // Health check

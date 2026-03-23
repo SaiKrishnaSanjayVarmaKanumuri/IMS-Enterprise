@@ -155,6 +155,8 @@ router.get("/", auth_js_1.authenticate, (0, rbac_js_1.requirePermission)("reques
         const { status, siteId, type, page = 1, limit = 20 } = req.query;
         const skip = (Number(page) - 1) * Number(limit);
         const take = Number(limit);
+        // Get user permissions from request (set by middleware)
+        const userPermissions = req.userPermissions || [];
         // Build where clause based on role
         let whereClause = {};
         switch (user.role) {
@@ -165,9 +167,8 @@ router.get("/", auth_js_1.authenticate, (0, rbac_js_1.requirePermission)("reques
                 };
                 break;
             case "SITE_ENGINEER":
-                // Engineer sees requests pending their approval at assigned sites
+                // Engineer sees ALL requests at their assigned sites (pending and processed)
                 whereClause = {
-                    status: "PENDING",
                     site: {
                         assignedUsers: {
                             some: { id: user.id },
@@ -176,15 +177,25 @@ router.get("/", auth_js_1.authenticate, (0, rbac_js_1.requirePermission)("reques
                 };
                 break;
             case "PROCUREMENT":
-                // Procurement sees engineer-approved requests
+                // Procurement sees engineer-approved requests (and their own processed ones)
                 whereClause = {
-                    status: "ENGINEER_APPROVED",
+                    OR: [
+                        { status: "ENGINEER_APPROVED" },
+                        { status: "PROCUREMENT_APPROVED" },
+                        { status: "PROCUREMENT_REJECTED" },
+                        { requesterId: user.id },
+                    ],
                 };
                 break;
             case "FINANCE":
-                // Finance sees procurement-approved requests
+                // Finance sees procurement-approved requests (and their own processed ones)
                 whereClause = {
-                    status: "PROCUREMENT_APPROVED",
+                    OR: [
+                        { status: "PROCUREMENT_APPROVED" },
+                        { status: "FINANCE_APPROVED" },
+                        { status: "FINANCE_REJECTED" },
+                        { requesterId: user.id },
+                    ],
                 };
                 break;
             case "ADMIN":
@@ -305,10 +316,9 @@ router.get("/:id", auth_js_1.authenticate, (0, rbac_js_1.requirePermission)("req
                 hasAccess = request.requesterId === user.id;
                 break;
             case "SITE_ENGINEER":
+                // Engineer can view any request at their assigned sites
                 hasAccess =
-                    request.status === "PENDING" ||
-                        request.site.assignedUsers?.some((u) => u.id === user.id) ||
-                        false;
+                    request.site.assignedUsers?.some((u) => u.id === user.id) || false;
                 break;
             case "PROCUREMENT":
                 hasAccess = request.status === "ENGINEER_APPROVED";

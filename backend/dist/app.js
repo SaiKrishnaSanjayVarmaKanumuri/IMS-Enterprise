@@ -6,28 +6,41 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = __importDefault(require("express"));
 const cors_1 = __importDefault(require("cors"));
 const helmet_1 = __importDefault(require("helmet"));
+const compression_1 = __importDefault(require("compression"));
 const express_rate_limit_1 = __importDefault(require("express-rate-limit"));
 const index_js_1 = require("./config/index.js");
 const logger_js_1 = require("./utils/logger.js");
-// Import routes
+const errorMiddleware_js_1 = require("./middleware/errorMiddleware.js");
+// ─── Core Routes ──────────────────────────────────────────────────────
 const auth_js_1 = __importDefault(require("./routes/auth.js"));
 const users_js_1 = __importDefault(require("./routes/users.js"));
 const roles_js_1 = __importDefault(require("./routes/roles.js"));
+const permissions_js_1 = __importDefault(require("./routes/permissions.js"));
 const sites_js_1 = __importDefault(require("./routes/sites.js"));
 const requests_js_1 = __importDefault(require("./routes/requests.js"));
 const inventory_js_1 = __importDefault(require("./routes/inventory.js"));
+// ─── Enterprise Routes ────────────────────────────────────────────────
+const vendors_js_1 = __importDefault(require("./routes/vendors.js"));
+const products_js_1 = __importDefault(require("./routes/products.js"));
+const purchaseOrders_js_1 = __importDefault(require("./routes/purchaseOrders.js"));
+const analytics_js_1 = __importDefault(require("./routes/analytics.js"));
+const notifications_js_1 = __importDefault(require("./routes/notifications.js"));
+const reports_js_1 = __importDefault(require("./routes/reports.js"));
 // Create Express app
 const app = (0, express_1.default)();
 // Security middleware
-app.use((0, helmet_1.default)());
+app.use((0, helmet_1.default)({
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+}));
+app.use((0, compression_1.default)());
 app.use((0, cors_1.default)({
     origin: process.env.FRONTEND_URL || "http://localhost:5173",
     credentials: true,
 }));
 // Rate limiting
 const limiter = (0, express_rate_limit_1.default)({
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 100, // Limit each IP to 100 requests per windowMs
+    windowMs: 15 * 60 * 1000,
+    max: 1000,
     message: {
         success: false,
         error: "Too many requests, please try again later",
@@ -47,40 +60,46 @@ app.use((req, res, next) => {
     });
     next();
 });
-// Health check endpoint
-app.get("/health", (req, res) => {
+// ─── Health Check ─────────────────────────────────────────────────────
+app.get("/health", async (_req, res) => {
+    const { PrismaClient } = await import("@prisma/client");
+    const prisma = new PrismaClient();
+    let dbStatus = "ok";
+    try {
+        await prisma.$queryRaw `SELECT 1`;
+    }
+    catch {
+        dbStatus = "error";
+    }
+    finally {
+        await prisma.$disconnect();
+    }
     res.json({
         success: true,
         message: "IMS API is running",
         timestamp: new Date().toISOString(),
         environment: index_js_1.config.nodeEnv,
+        version: "2.0.0",
+        database: dbStatus,
     });
 });
-// API Routes
+// ─── Core API Routes ──────────────────────────────────────────────────
 app.use("/api/auth", auth_js_1.default);
 app.use("/api/users", users_js_1.default);
 app.use("/api/roles", roles_js_1.default);
+app.use("/api/permissions", permissions_js_1.default);
 app.use("/api/sites", sites_js_1.default);
 app.use("/api/requests", requests_js_1.default);
 app.use("/api/inventory", inventory_js_1.default);
-// 404 handler
-app.use((req, res) => {
-    res.status(404).json({
-        success: false,
-        error: "Endpoint not found",
-        code: "NOT_FOUND",
-    });
-});
-// Global error handler
-app.use((err, req, res, next) => {
-    logger_js_1.logger.error("Unhandled error:", err);
-    res.status(500).json({
-        success: false,
-        error: index_js_1.config.nodeEnv === "production"
-            ? "Internal server error"
-            : err.message,
-        code: "INTERNAL_ERROR",
-    });
-});
+// ─── Enterprise API Routes ────────────────────────────────────────────
+app.use("/api/vendors", vendors_js_1.default);
+app.use("/api/products", products_js_1.default);
+app.use("/api/purchase-orders", purchaseOrders_js_1.default);
+app.use("/api/analytics", analytics_js_1.default);
+app.use("/api/notifications", notifications_js_1.default);
+app.use("/api/reports", reports_js_1.default);
+// ─── Error Handling ───────────────────────────────────────────────────
+app.use(errorMiddleware_js_1.notFoundHandler);
+app.use(errorMiddleware_js_1.errorHandler);
 exports.default = app;
 //# sourceMappingURL=app.js.map

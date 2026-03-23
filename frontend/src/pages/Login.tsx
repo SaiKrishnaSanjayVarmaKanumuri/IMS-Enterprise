@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { useAuth } from "../contexts/AuthContext";
 
@@ -41,11 +41,11 @@ const Login: React.FC = () => {
     };
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-gray-100 py-12 px-4 sm:px-6 lg:px-8">
+        <div className="min-h-screen flex items-center justify-center bg-gray-100 py-8 px-4 sm:px-6">
             <div className="max-w-md w-full">
-                <div className="bg-white rounded-lg shadow-xl p-8">
-                    <div className="text-center mb-8">
-                        <h1 className="text-3xl font-bold text-gray-900">
+                <div className="bg-white rounded-lg shadow-xl p-6 sm:p-8">
+                    <div className="text-center mb-6 sm:mb-8">
+                        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
                             IMS
                         </h1>
                         <p className="mt-2 text-sm text-gray-600">
@@ -55,7 +55,7 @@ const Login: React.FC = () => {
 
                     <form
                         onSubmit={handleSubmit(onSubmit)}
-                        className="space-y-6"
+                        className="space-y-5"
                     >
                         {error && (
                             <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md text-sm">
@@ -80,7 +80,7 @@ const Login: React.FC = () => {
                                         message: "Invalid email address",
                                     },
                                 })}
-                                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
+                                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 text-base"
                             />
                             {errors.email && (
                                 <p className="mt-1 text-sm text-red-600">
@@ -102,7 +102,7 @@ const Login: React.FC = () => {
                                 {...register("password", {
                                     required: "Password is required",
                                 })}
-                                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
+                                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 text-base"
                             />
                             {errors.password && (
                                 <p className="mt-1 text-sm text-red-600">
@@ -114,7 +114,7 @@ const Login: React.FC = () => {
                         <button
                             type="submit"
                             disabled={isLoading}
-                            className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="w-full flex justify-center py-2.5 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             {isLoading ? "Signing in..." : "Sign In"}
                         </button>
@@ -124,15 +124,24 @@ const Login: React.FC = () => {
                         <p>Contact administrator for account creation</p>
                     </div>
 
-                    <div className="mt-4 p-4 bg-gray-50 rounded-md">
-                        <p className="text-xs text-gray-500 text-center">
+                    <div className="mt-4 p-3 sm:p-4 bg-gray-50 rounded-md">
+                        <p className="text-xs sm:text-sm text-gray-500 text-center">
                             <strong>Demo Credentials:</strong>
                             <br />
-                            Admin: admin@ims.com / admin123
-                            <br />
-                            Engineer: engineer@ims.com / engineer123
-                            <br />
-                            FM: fm@ims.com / fm123
+                            <span className="hidden sm:inline">
+                                Admin: admin@ims.com / admin123
+                                <br />
+                                Engineer: engineer@ims.com / engineer123
+                                <br />
+                                FM: fm@ims.com / fm123
+                            </span>
+                            <span className="sm:hidden">
+                                admin@ims.com / admin123
+                                <br />
+                                engineer@ims.com / engineer123
+                                <br />
+                                fm@ims.com / fm123
+                            </span>
                         </p>
                     </div>
                 </div>

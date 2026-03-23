@@ -9,6 +9,10 @@ const UserManagement: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [showForm, setShowForm] = useState(false);
     const [editingUser, setEditingUser] = useState<User | null>(null);
+    const [message, setMessage] = useState<{
+        type: "success" | "error";
+        text: string;
+    } | null>(null);
     const [formData, setFormData] = useState<{
         email: string;
         firstName: string;
@@ -71,6 +75,7 @@ const UserManagement: React.FC = () => {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        setMessage(null);
         try {
             if (editingUser) {
                 // For update, only include password if it's provided
@@ -88,8 +93,16 @@ const UserManagement: React.FC = () => {
                         formData.password;
                 }
                 await apiClient.users.update(editingUser.id, updateData);
+                setMessage({
+                    type: "success",
+                    text: "User updated successfully!",
+                });
             } else {
                 await apiClient.users.create(formData);
+                setMessage({
+                    type: "success",
+                    text: "User created successfully!",
+                });
             }
             setShowForm(false);
             setEditingUser(null);
@@ -97,6 +110,10 @@ const UserManagement: React.FC = () => {
             fetchUsers();
         } catch (error) {
             console.error("Failed to save user:", error);
+            setMessage({
+                type: "error",
+                text: "Failed to save user. Please try again.",
+            });
         }
     };
 
@@ -116,13 +133,24 @@ const UserManagement: React.FC = () => {
         setShowForm(true);
     };
 
-    const handleDelete = async (userId: string) => {
-        if (!confirm("Are you sure you want to delete this user?")) return;
+    const handleDelete = async (userId: string, userName: string) => {
+        if (
+            !confirm(
+                `Are you sure you want to delete user "${userName}"? This action cannot be undone.`,
+            )
+        )
+            return;
+        setMessage(null);
         try {
             await apiClient.users.delete(userId);
+            setMessage({ type: "success", text: "User deleted successfully!" });
             fetchUsers();
         } catch (error) {
             console.error("Failed to delete user:", error);
+            setMessage({
+                type: "error",
+                text: "Failed to delete user. They may have associated records.",
+            });
         }
     };
 
@@ -181,6 +209,18 @@ const UserManagement: React.FC = () => {
                     Add User
                 </button>
             </div>
+
+            {message && (
+                <div
+                    className={`p-4 rounded-md ${
+                        message.type === "success"
+                            ? "bg-green-50 text-green-800 border border-green-200"
+                            : "bg-red-50 text-red-800 border border-red-200"
+                    }`}
+                >
+                    {message.text}
+                </div>
+            )}
 
             {showForm && (
                 <div className="bg-white rounded-lg shadow p-6">
@@ -431,8 +471,13 @@ const UserManagement: React.FC = () => {
                                         Edit
                                     </button>
                                     <button
-                                        onClick={() => handleDelete(user.id)}
-                                        className="text-red-600 hover:text-red-900"
+                                        onClick={() =>
+                                            handleDelete(
+                                                user.id,
+                                                `${user.firstName} ${user.lastName}`,
+                                            )
+                                        }
+                                        className="text-red-600 hover:text-red-900 font-medium"
                                     >
                                         Delete
                                     </button>

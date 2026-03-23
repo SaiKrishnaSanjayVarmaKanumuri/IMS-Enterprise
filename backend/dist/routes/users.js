@@ -95,7 +95,7 @@ router.post("/", auth_js_1.authenticate, (0, rbac_js_1.requireRole)("ADMIN"), [
     (0, express_validator_1.body)("email").isEmail().normalizeEmail(),
     (0, express_validator_1.body)("firstName").trim().notEmpty(),
     (0, express_validator_1.body)("lastName").trim().notEmpty(),
-    (0, express_validator_1.body)("role").isIn(rbac_js_1.UserRoles),
+    (0, express_validator_1.body)("role").trim().notEmpty(),
     (0, express_validator_1.body)("password").isLength({ min: 8 }),
     handleValidation,
 ], async (req, res) => {
@@ -114,6 +114,18 @@ router.post("/", auth_js_1.authenticate, (0, rbac_js_1.requireRole)("ADMIN"), [
             });
             return;
         }
+        // Check if role exists in database (allows custom roles)
+        const existingRole = await prisma.role.findUnique({
+            where: { name: role },
+        });
+        if (!existingRole) {
+            res.status(400).json({
+                success: false,
+                error: "Role not found. Please select a valid role.",
+                code: "INVALID_ROLE",
+            });
+            return;
+        }
         // Hash password
         const passwordHash = await bcryptjs_1.default.hash(password, index_js_1.config.bcrypt.rounds);
         // Create user
@@ -125,17 +137,25 @@ router.post("/", auth_js_1.authenticate, (0, rbac_js_1.requireRole)("ADMIN"), [
                 lastName,
                 role: role,
                 isActive: true,
-                assignedSites: siteIds
-                    ? {
-                        connect: siteIds.map((id) => ({ id })),
-                    }
-                    : undefined,
             },
             include: {
                 roleObj: true,
                 assignedSites: true,
             },
         });
+        // Bidirectional sync: Assign user to sites (update Site.assignedUsers)
+        if (siteIds && siteIds.length > 0) {
+            for (const siteId of siteIds) {
+                await prisma.site.update({
+                    where: { id: siteId },
+                    data: {
+                        assignedUsers: {
+                            connect: { id: user.id },
+                        },
+                    },
+                });
+            }
+        }
         (0, logger_js_1.logAudit)(adminUser.id, "user.create", "users", user.id, {
             email: user.email,
             role: user.roleObj?.name,
@@ -214,14 +234,15 @@ router.get("/:id", auth_js_1.authenticate, (0, rbac_js_1.requireRole)("ADMIN"), 
 router.patch("/:id", auth_js_1.authenticate, (0, rbac_js_1.requireRole)("ADMIN"), [
     (0, express_validator_1.body)("firstName").optional().trim().notEmpty(),
     (0, express_validator_1.body)("lastName").optional().trim().notEmpty(),
-    (0, express_validator_1.body)("role").optional().isIn(rbac_js_1.UserRoles),
+    (0, express_validator_1.body)("role").optional().trim().notEmpty(),
     (0, express_validator_1.body)("isActive").optional().isBoolean(),
+    (0, express_validator_1.body)("password").optional().isLength({ min: 8 }),
     handleValidation,
 ], async (req, res) => {
     try {
         const adminUser = req.user;
         const { id } = req.params;
-        const { firstName, lastName, role, isActive, siteIds } = req.body;
+        const { firstName, lastName, role, isActive, siteIds, password } = req.body;
         const user = await prisma.user.findUnique({ where: { id } });
         if (!user) {
             res.status(404).json({
@@ -240,6 +261,20 @@ router.patch("/:id", auth_js_1.authenticate, (0, rbac_js_1.requireRole)("ADMIN")
             });
             return;
         }
+        // If role is being updated, check if it exists in database
+        if (role !== undefined) {
+            const existingRole = await prisma.role.findUnique({
+                where: { name: role },
+            });
+            if (!existingRole) {
+                res.status(400).json({
+                    success: false,
+                    error: "Role not found. Please select a valid role.",
+                    code: "INVALID_ROLE",
+                });
+                return;
+            }
+        }
         const updateData = {};
         if (firstName !== undefined)
             updateData.firstName = firstName;
@@ -249,11 +284,54 @@ router.patch("/:id", auth_js_1.authenticate, (0, rbac_js_1.requireRole)("ADMIN")
             updateData.role = role;
         if (isActive !== undefined)
             updateData.isActive = isActive;
-        // Handle site assignments
+        // Update password if provided
+        if (password !== undefined) {
+            const passwordHash = await bcryptjs_1.default.hash(password, index_js_1.config.bcrypt.rounds);
+            updateData.passwordHash = passwordHash;
+        }
+        // Handle site assignments - bidirectional sync
         if (siteIds !== undefined) {
-            updateData.assignedSites = {
-                set: siteIds.map((sid) => ({ id: sid })),
-            };
+            // First, get all sites that currently have this user assigned
+            const currentSites = await prisma.site.findMany({
+                where: {
+                    assignedUsers: {
+                        some: { id },
+                    },
+                },
+            });
+            // Disconnect user from all current sites
+            for (const site of currentSites) {
+                await prisma.site.update({
+                    where: { id: site.id },
+                    data: {
+                        assignedUsers: {
+                            disconnect: { id },
+                        },
+                    },
+                });
+            }
+            // Then connect to new sites (update both User.assignedSites and Site.assignedUsers)
+            if (siteIds.length > 0) {
+                updateData.assignedSites = {
+                    set: siteIds.map((sid) => ({ id: sid })),
+                };
+                // Also update Site.assignedUsers for each new site
+                for (const siteId of siteIds) {
+                    await prisma.site.update({
+                        where: { id: siteId },
+                        data: {
+                            assignedUsers: {
+                                connect: { id },
+                            },
+                        },
+                    });
+                }
+            }
+            else {
+                updateData.assignedSites = {
+                    set: [],
+                };
+            }
         }
         const updatedUser = await prisma.user.update({
             where: { id },

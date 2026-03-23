@@ -24,7 +24,7 @@ interface RequestFormData {
 
 const RequestForm: React.FC = () => {
     const navigate = useNavigate();
-    const { user } = useAuth();
+    const { } = useAuth();
     const [sites, setSites] = useState<Site[]>([]);
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);

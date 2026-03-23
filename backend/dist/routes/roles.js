@@ -8,8 +8,8 @@ const logger_js_1 = require("../utils/logger.js");
 const client_1 = require("@prisma/client");
 const router = (0, express_1.Router)();
 const prisma = new client_1.PrismaClient();
-// Valid role names (for validation)
-const VALID_ROLES = [
+// Valid role names for seed data (predefined system roles)
+const SYSTEM_ROLES = [
     "ADMIN",
     "SITE_ENGINEER",
     "PROCUREMENT",
@@ -116,12 +116,17 @@ router.get("/:id", auth_js_1.authenticate, (0, rbac_js_1.requireRole)("ADMIN"), 
 /**
  * POST /roles
  * Create new role (Admin only)
- * Role definitions are locked and managed exclusively by Admin
+ * Can create custom roles in addition to system roles
  */
 router.post("/", auth_js_1.authenticate, (0, rbac_js_1.requireRole)("ADMIN"), [
-    (0, express_validator_1.body)("name").isIn(VALID_ROLES),
+    (0, express_validator_1.body)("name")
+        .trim()
+        .notEmpty()
+        .isLength({ min: 2, max: 50 })
+        .matches(/^[A-Z][A-Z0-9_]*$/)
+        .withMessage("Role name must be uppercase (e.g., CUSTOM_ROLE)"),
     (0, express_validator_1.body)("description").trim().notEmpty(),
-    (0, express_validator_1.body)("permissionIds").isArray(),
+    (0, express_validator_1.body)("permissionIds").isArray({ min: 1 }),
     handleValidation,
 ], async (req, res) => {
     try {

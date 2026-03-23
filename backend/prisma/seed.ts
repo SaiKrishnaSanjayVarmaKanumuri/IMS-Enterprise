@@ -331,10 +331,13 @@ async function main() {
                     "auth:login",
                     "sites:read",
                     "requests:read:own",
+                    "requests:read:all",
                     "requests:read:approval",
                     "requests:update",
                     "requests:approve:engineer",
                     "requests:reject:engineer",
+                    "inventory:read:own",
+                    "inventory:create",
                 ],
             },
         },
@@ -504,6 +507,7 @@ async function main() {
             lastName: "Engineer",
             role: ROLES.SITE_ENGINEER,
             password: "engineer123",
+            siteIds: [sites[0].id, sites[1].id, sites[2].id], // Assigned to all sites
         },
         {
             email: "procurement@ims.com",
@@ -525,23 +529,188 @@ async function main() {
             lastName: "Man",
             role: ROLES.FRONT_MAN,
             password: "fm123",
+            siteIds: [sites[0].id], // Assigned to first site
         },
     ];
 
     for (const user of sampleUsers) {
         const passwordHash = await bcrypt.hash(user.password, 12);
-        await prisma.user.upsert({
-            where: { email: user.email },
+        const { siteIds, ...userData } = user;
+        const createdUser = await prisma.user.upsert({
+            where: { email: userData.email },
             update: {},
             create: {
-                email: user.email,
+                email: userData.email,
                 passwordHash,
-                firstName: user.firstName,
-                lastName: user.lastName,
-                role: user.role,
+                firstName: userData.firstName,
+                lastName: userData.lastName,
+                role: userData.role,
                 isActive: true,
             },
         });
+
+        // Assign users to sites
+        if (siteIds && siteIds.length > 0) {
+            for (const siteId of siteIds) {
+                await prisma.site.update({
+                    where: { id: siteId },
+                    data: {
+                        assignedUsers: {
+                            connect: { id: createdUser.id },
+                        },
+                    },
+                });
+            }
+        }
+    }
+
+    // ─── Seed Categories ────────────────────────────────────────────────
+    console.log("Creating product categories...");
+    const categoryData = [
+        { name: "Raw Materials", code: "RAW", description: "Basic construction raw materials" },
+        { name: "Cement & Concrete", code: "CEM", description: "Cement, concrete, and related products" },
+        { name: "Steel & Iron", code: "STL", description: "Steel rods, bars, sheets, and iron products" },
+        { name: "Electrical", code: "ELC", description: "Wires, cables, switchgear, and electrical fittings" },
+        { name: "Plumbing", code: "PLB", description: "Pipes, fittings, and plumbing accessories" },
+        { name: "Tools & Equipment", code: "TLS", description: "Hand tools, power tools, and equipment" },
+        { name: "Safety & PPE", code: "PPE", description: "Personal protective equipment and safety gear" },
+        { name: "Paints & Finishes", code: "PNT", description: "Paints, varnishes, and surface finishes" },
+        { name: "Timber & Wood", code: "TMB", description: "Lumber, plywood, and wood products" },
+        { name: "Aggregates", code: "AGG", description: "Sand, gravel, stone, and aggregates" },
+    ];
+
+    for (const cat of categoryData) {
+        await prisma.category.upsert({
+            where: { code: cat.code },
+            update: {},
+            create: cat,
+        });
+    }
+
+    // ─── Seed Units of Measure ───────────────────────────────────────────
+    console.log("Creating units of measure...");
+    const unitData = [
+        { name: "Kilogram", abbreviation: "kg", type: "weight" },
+        { name: "Metric Ton", abbreviation: "MT", type: "weight" },
+        { name: "Gram", abbreviation: "g", type: "weight" },
+        { name: "Piece", abbreviation: "pcs", type: "count" },
+        { name: "Unit", abbreviation: "unit", type: "count" },
+        { name: "Bag", abbreviation: "bag", type: "count" },
+        { name: "Box", abbreviation: "box", type: "count" },
+        { name: "Set", abbreviation: "set", type: "count" },
+        { name: "Meter", abbreviation: "m", type: "length" },
+        { name: "Foot", abbreviation: "ft", type: "length" },
+        { name: "Liter", abbreviation: "L", type: "volume" },
+        { name: "Milliliter", abbreviation: "mL", type: "volume" },
+        { name: "Square Meter", abbreviation: "m²", type: "area" },
+        { name: "Cubic Meter", abbreviation: "m³", type: "volume" },
+        { name: "Roll", abbreviation: "roll", type: "count" },
+        { name: "Bundle", abbreviation: "bndl", type: "count" },
+    ];
+
+    for (const unit of unitData) {
+        await prisma.unitOfMeasure.upsert({
+            where: { abbreviation: unit.abbreviation },
+            update: {},
+            create: unit,
+        });
+    }
+
+    // ─── Seed Vendors ────────────────────────────────────────────────────
+    console.log("Creating sample vendors...");
+    const vendorData = [
+        {
+            name: "BuildMart Supplies Pvt Ltd",
+            code: "VEND-0001",
+            email: "orders@buildmart.com",
+            phone: "+91-9876543210",
+            contactPerson: "Ranjit Kumar",
+            address: "Plot 12, Industrial Area Phase 2",
+            city: "Mumbai",
+            state: "Maharashtra",
+            country: "India",
+            pincode: "400001",
+            gstNumber: "27AABCS1234A1Z5",
+            paymentTerms: 30,
+            creditLimit: 500000,
+            rating: 4.5,
+        },
+        {
+            name: "Steel India Works",
+            code: "VEND-0002",
+            email: "supply@steelindia.com",
+            phone: "+91-9988776655",
+            contactPerson: "Priya Sharma",
+            address: "NH-8, Industrial Corridor",
+            city: "Pune",
+            state: "Maharashtra",
+            country: "India",
+            pincode: "411001",
+            gstNumber: "27BBCDE5678B2Y6",
+            paymentTerms: 45,
+            creditLimit: 1000000,
+            rating: 4.2,
+        },
+        {
+            name: "National Electrical Suppliers",
+            code: "VEND-0003",
+            email: "info@nationelectric.com",
+            phone: "+91-8800990011",
+            contactPerson: "Vikas Patel",
+            address: "45, Electronics Complex",
+            city: "Ahmedabad",
+            state: "Gujarat",
+            country: "India",
+            pincode: "380001",
+            paymentTerms: 30,
+            creditLimit: 250000,
+            rating: 3.8,
+        },
+    ];
+
+    for (const vendor of vendorData) {
+        await prisma.vendor.upsert({
+            where: { code: vendor.code },
+            update: {},
+            create: vendor,
+        });
+    }
+
+    // ─── Seed Products ───────────────────────────────────────────────────
+    console.log("Creating sample products...");
+    const cementCat = await prisma.category.findUnique({ where: { code: "CEM" } });
+    const steelCat = await prisma.category.findUnique({ where: { code: "STL" } });
+    const elecCat = await prisma.category.findUnique({ where: { code: "ELC" } });
+    const aggCat = await prisma.category.findUnique({ where: { code: "AGG" } });
+    const ppecat = await prisma.category.findUnique({ where: { code: "PPE" } });
+
+    const bagUnit = await prisma.unitOfMeasure.findUnique({ where: { abbreviation: "bag" } });
+    const kgUnit = await prisma.unitOfMeasure.findUnique({ where: { abbreviation: "kg" } });
+    const mUnit = await prisma.unitOfMeasure.findUnique({ where: { abbreviation: "m" } });
+    const mtUnit = await prisma.unitOfMeasure.findUnique({ where: { abbreviation: "MT" } });
+    const pcsUnit = await prisma.unitOfMeasure.findUnique({ where: { abbreviation: "pcs" } });
+
+    if (cementCat && steelCat && elecCat && aggCat && ppecat && bagUnit && kgUnit && mUnit && mtUnit && pcsUnit) {
+        const productsToCreate = [
+            { name: "OPC Cement 53 Grade", sku: "CEM-53-001", categoryId: cementCat.id, unitId: bagUnit.id, costPrice: 420, taxRate: 28, hsnCode: "2523" },
+            { name: "PPC Cement 43 Grade", sku: "CEM-43-002", categoryId: cementCat.id, unitId: bagUnit.id, costPrice: 390, taxRate: 28, hsnCode: "2523" },
+            { name: "TMT Steel Bar 12mm", sku: "STL-TMT-012", categoryId: steelCat.id, unitId: kgUnit.id, costPrice: 65, taxRate: 18, hsnCode: "7214" },
+            { name: "TMT Steel Bar 16mm", sku: "STL-TMT-016", categoryId: steelCat.id, unitId: kgUnit.id, costPrice: 64, taxRate: 18, hsnCode: "7214" },
+            { name: "MS Plate 6mm", sku: "STL-MSP-006", categoryId: steelCat.id, unitId: mtUnit.id, costPrice: 62000, taxRate: 18, hsnCode: "7208" },
+            { name: "XLPE Cable 4mm 3-core", sku: "ELC-CAB-4C3", categoryId: elecCat.id, unitId: mUnit.id, costPrice: 120, taxRate: 18, hsnCode: "8544" },
+            { name: "MCB Switch 32A", sku: "ELC-MCB-032", categoryId: elecCat.id, unitId: pcsUnit.id, costPrice: 285, taxRate: 18, hsnCode: "8536" },
+            { name: "River Sand", sku: "AGG-SND-001", categoryId: aggCat.id, unitId: mtUnit.id, costPrice: 850, taxRate: 5, hsnCode: "2505" },
+            { name: "20mm Stone Chips", sku: "AGG-CHI-020", categoryId: aggCat.id, unitId: mtUnit.id, costPrice: 1200, taxRate: 5, hsnCode: "2517" },
+            { name: "Safety Helmet", sku: "PPE-HLM-001", categoryId: ppecat.id, unitId: pcsUnit.id, costPrice: 180, taxRate: 18, hsnCode: "6506" },
+        ];
+
+        for (const product of productsToCreate) {
+            await prisma.product.upsert({
+                where: { sku: product.sku },
+                update: {},
+                create: product,
+            });
+        }
     }
 
     console.log("✅ Database seeded successfully!");

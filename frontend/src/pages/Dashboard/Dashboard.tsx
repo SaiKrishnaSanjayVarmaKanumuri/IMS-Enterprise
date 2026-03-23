@@ -1,44 +1,17 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
 import { apiClient } from "../../services/api";
-import {
-    ROLE_DISPLAY_NAMES,
-    STATUS_COLORS,
-    STATUS_DISPLAY_NAMES,
-} from "../../types";
 
 const Dashboard: React.FC = () => {
-    const navigate = useNavigate();
-    const { user, hasRole } = useAuth();
-    const [stats, setStats] = useState({
-        totalRequests: 0,
-        pendingApprovals: 0,
-        myRequests: 0,
-        completedThisMonth: 0,
-    });
-    const [loading, setLoading] = useState(true);
+    const { hasRole } = useAuth();
 
     useEffect(() => {
         const fetchStats = async () => {
             try {
-                const response = await apiClient.requests.list({ limit: 1 });
-                if (response.data.success) {
-                    setStats({
-                        totalRequests: (
-                            response.data.data as {
-                                pagination: { total: number };
-                            }
-                        ).pagination.total,
-                        pendingApprovals: 0,
-                        myRequests: 0,
-                        completedThisMonth: 0,
-                    });
-                }
+                await apiClient.requests.list({ limit: 1 });
             } catch (error) {
                 console.error("Failed to fetch stats:", error);
-            } finally {
-                setLoading(false);
             }
         };
 

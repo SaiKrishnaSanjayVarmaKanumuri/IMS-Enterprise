@@ -324,9 +324,49 @@ router.patch(
             if (status !== undefined) updateData.status = status;
 
             if (userIds !== undefined) {
-                updateData.assignedUsers = {
-                    set: userIds.map((uid: string) => ({ id: uid })),
-                };
+                // First, get all users currently assigned to this site
+                const currentUsers = await prisma.user.findMany({
+                    where: {
+                        assignedSites: {
+                            some: { id: id },
+                        },
+                    },
+                });
+
+                // Disconnect all current users from this site
+                for (const user of currentUsers) {
+                    await prisma.user.update({
+                        where: { id: user.id },
+                        data: {
+                            assignedSites: {
+                                disconnect: { id: id },
+                            },
+                        },
+                    });
+                }
+
+                // Then connect to new users
+                if (userIds.length > 0) {
+                    updateData.assignedUsers = {
+                        set: userIds.map((uid: string) => ({ id: uid })),
+                    };
+
+                    // Also update User.assignedSites for each new user
+                    for (const userId of userIds) {
+                        await prisma.user.update({
+                            where: { id: userId },
+                            data: {
+                                assignedSites: {
+                                    connect: { id: id },
+                                },
+                            },
+                        });
+                    }
+                } else {
+                    updateData.assignedUsers = {
+                        set: [],
+                    };
+                }
             }
 
             const updatedSite = await prisma.site.update({
@@ -449,10 +489,12 @@ router.post(
     async (req: Request, res: Response): Promise<void> => {
         try {
             const adminUser = req.user!;
-            const { id } = req.params;
+            const { id: siteId } = req.params;
             const { userIds } = req.body;
 
-            const site = await prisma.site.findUnique({ where: { id } });
+            const site = await prisma.site.findUnique({
+                where: { id: siteId },
+            });
 
             if (!site) {
                 res.status(404).json({
@@ -477,8 +519,9 @@ router.post(
                 return;
             }
 
+            // Update Site.assignedUsers
             const updatedSite = await prisma.site.update({
-                where: { id },
+                where: { id: siteId },
                 data: {
                     assignedUsers: {
                         connect: userIds.map((uid: string) => ({ id: uid })),
@@ -497,11 +540,23 @@ router.post(
                 },
             });
 
+            // Bidirectional sync: Also update User.assignedSites
+            for (const userId of userIds) {
+                await prisma.user.update({
+                    where: { id: userId },
+                    data: {
+                        assignedSites: {
+                            connect: { id: siteId },
+                        },
+                    },
+                });
+            }
+
             logAudit(
                 adminUser.id,
                 "site.assign_users",
                 "sites",
-                id,
+                siteId,
                 { userIds, siteName: site.name },
                 "success",
             );
@@ -537,10 +592,10 @@ router.delete(
     async (req: Request, res: Response): Promise<void> => {
         try {
             const adminUser = req.user!;
-            const { id, userId } = req.params;
+            const { id: siteId, userId } = req.params;
 
             const site = await prisma.site.findUnique({
-                where: { id },
+                where: { id: siteId },
                 include: { assignedUsers: true },
             });
 
@@ -563,8 +618,9 @@ router.delete(
                 return;
             }
 
+            // Update Site.assignedUsers
             const updatedSite = await prisma.site.update({
-                where: { id },
+                where: { id: siteId },
                 data: {
                     assignedUsers: {
                         disconnect: { id: userId },
@@ -583,11 +639,21 @@ router.delete(
                 },
             });
 
+            // Bidirectional sync: Also update User.assignedSites
+            await prisma.user.update({
+                where: { id: userId },
+                data: {
+                    assignedSites: {
+                        disconnect: { id: siteId },
+                    },
+                },
+            });
+
             logAudit(
                 adminUser.id,
                 "site.remove_user",
                 "sites",
-                id,
+                siteId,
                 { userId, siteName: site.name },
                 "success",
             );
