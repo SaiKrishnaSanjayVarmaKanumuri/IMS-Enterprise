@@ -20,6 +20,7 @@ import PurchaseOrdersPage from "./pages/Procurement/PurchaseOrdersPage";
 import ProductsPage from "./pages/Inventory/ProductsPage";
 import StockTransfer from "./pages/Inventory/StockTransfer";
 import InventoryAdjust from "./pages/Inventory/InventoryAdjust";
+import MyProfile from "./pages/Profile/MyProfile";
 
 const App: React.FC = () => {
     const { isAuthenticated, isLoading } = useAuth();
@@ -47,6 +48,7 @@ const App: React.FC = () => {
                 <Route path="inventory/alerts" element={<LowStockAlerts />} />
                 <Route path="inventory/transfer" element={<StockTransfer />} />
                 <Route path="inventory/adjust" element={<InventoryAdjust />} />
+                <Route path="profile" element={<MyProfile />} />
                 <Route path="products" element={<ProtectedRoute allowedRoles={["ADMIN", "PROCUREMENT", "FRONT_MAN", "SITE_ENGINEER"]}><ProductsPage /></ProtectedRoute>} />
                 <Route path="vendors" element={<ProtectedRoute allowedRoles={["ADMIN", "PROCUREMENT"]}><VendorsPage /></ProtectedRoute>} />
                 <Route path="purchase-orders" element={<ProtectedRoute allowedRoles={["ADMIN", "PROCUREMENT"]}><PurchaseOrdersPage /></ProtectedRoute>} />

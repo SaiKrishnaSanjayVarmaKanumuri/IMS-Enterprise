@@ -153,10 +153,10 @@ router.post(
                         }) => ({
                             requestId: newRequest.id,
                             itemName: item.itemName,
-                            quantity: item.quantity,
-                            unit: item.unit,
-                            specifications: item.specifications,
-                            notes: item.notes,
+                            quantity: Number(item.quantity),
+                            unitLabel: item.unit || "pcs",   // required field in schema
+                            specifications: item.specifications || null,
+                            notes: item.notes || null,
                         }),
                     ),
                 });

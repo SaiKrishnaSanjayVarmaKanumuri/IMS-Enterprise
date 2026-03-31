@@ -4,7 +4,7 @@ import {
     Home, BarChart2, Package, Layers, History, AlertTriangle,
     PlusCircle, FileText, CheckSquare, Building2, ShoppingCart,
     DollarSign, Users, Shield, MapPin, LogOut, Bell, Menu, X,
-    ChevronRight, ArrowLeftRight, ClipboardCheck, Search
+    ChevronRight, ArrowLeftRight, ClipboardCheck, Search, UserCircle
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { ROLE_DISPLAY_NAMES } from "../types";
@@ -43,6 +43,7 @@ const Sidebar: React.FC = () => {
     const mainItems: NavItem[] = [
         { path: "/", label: "Home", icon: <Home size={20} />, color: "#6366f1" },
         { path: "/analytics", label: "Analytics", icon: <BarChart2 size={20} />, color: "#22d3ee" },
+        { path: "/profile", label: "My Profile & Sites", icon: <UserCircle size={20} />, color: "#f472b6" },
     ];
     groups.push({ title: "Main", items: mainItems });
 
