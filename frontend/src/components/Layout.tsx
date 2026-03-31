@@ -1,13 +1,24 @@
 import React from "react";
 import { Outlet } from "react-router-dom";
-import Navbar from "./Navbar";
+import Sidebar from "./Sidebar";
 
 const Layout: React.FC = () => {
     return (
-        <div className="min-h-screen bg-gray-100">
-            <Navbar />
-            <main className="max-w-7xl mx-auto px-2 sm:px-3 md:px-4 lg:px-6 py-4 sm:py-6">
-                <Outlet />
+        <div style={{ display: "flex", minHeight: "100vh", background: "#f8fafc" }}>
+            <Sidebar />
+            {/* Content area — offset by sidebar width on md+ */}
+            <main
+                className="sidebar-content"
+                style={{
+                    flex: 1,
+                    minWidth: 0,
+                    padding: "1.5rem",
+                    /* On mobile, add top padding for the fixed mobile bar */
+                }}
+            >
+                <div className="md-sidebar-offset">
+                    <Outlet />
+                </div>
             </main>
         </div>
     );

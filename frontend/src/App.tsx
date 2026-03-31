@@ -18,6 +18,8 @@ import AnalyticsDashboard from "./pages/Analytics/AnalyticsDashboard";
 import VendorsPage from "./pages/Procurement/VendorsPage";
 import PurchaseOrdersPage from "./pages/Procurement/PurchaseOrdersPage";
 import ProductsPage from "./pages/Inventory/ProductsPage";
+import StockTransfer from "./pages/Inventory/StockTransfer";
+import InventoryAdjust from "./pages/Inventory/InventoryAdjust";
 
 const App: React.FC = () => {
     const { isAuthenticated, isLoading } = useAuth();
@@ -43,6 +45,8 @@ const App: React.FC = () => {
                 <Route path="inventory" element={<InventoryList />} />
                 <Route path="inventory/history" element={<StockHistory />} />
                 <Route path="inventory/alerts" element={<LowStockAlerts />} />
+                <Route path="inventory/transfer" element={<StockTransfer />} />
+                <Route path="inventory/adjust" element={<InventoryAdjust />} />
                 <Route path="products" element={<ProtectedRoute allowedRoles={["ADMIN", "PROCUREMENT", "FRONT_MAN", "SITE_ENGINEER"]}><ProductsPage /></ProtectedRoute>} />
                 <Route path="vendors" element={<ProtectedRoute allowedRoles={["ADMIN", "PROCUREMENT"]}><VendorsPage /></ProtectedRoute>} />
                 <Route path="purchase-orders" element={<ProtectedRoute allowedRoles={["ADMIN", "PROCUREMENT"]}><PurchaseOrdersPage /></ProtectedRoute>} />

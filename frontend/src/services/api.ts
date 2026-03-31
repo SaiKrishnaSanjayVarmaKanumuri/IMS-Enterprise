@@ -344,6 +344,21 @@ export const apiClient = {
                 { params },
             ),
 
+        transfer: (data: {
+            fromSiteId: string;
+            toSiteId: string;
+            itemId: string;
+            quantity: number;
+            reason?: string;
+        }) => api.post<ApiResponse<{ movement: unknown }>>("/inventory/transfer", data),
+
+        adjust: (data: {
+            itemId: string;
+            newQuantity: number;
+            reason: string;
+            notes?: string;
+        }) => api.post<ApiResponse<{ movement: unknown; item: unknown }>>("/inventory/adjust", data),
+
         getLowStockAlerts: (params?: {
             siteId?: string;
             isRead?: boolean;
