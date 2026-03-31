@@ -183,7 +183,7 @@ export const requirePermission = (permission: string) => {
                 },
             });
 
-            if (!userWithRole || !userWithRole.roleObj) {
+            if (!userWithRole) {
                 logAudit(
                     user.id,
                     "rbac.user_not_found",
@@ -194,8 +194,8 @@ export const requirePermission = (permission: string) => {
                 );
                 res.status(403).json({
                     success: false,
-                    error: "User role not found",
-                    code: "ROLE_NOT_FOUND",
+                    error: "User not found",
+                    code: "USER_NOT_FOUND",
                 });
                 return;
             }
@@ -217,10 +217,20 @@ export const requirePermission = (permission: string) => {
                 return;
             }
 
-            // Extract permission names
-            const userPermissions = userWithRole.roleObj.permissions.map(
-                (p: { name: string }) => p.name,
-            );
+            // Extract permission names — fall back to hardcoded defaults if DB role is missing
+            let userPermissions: string[];
+            if (userWithRole.roleObj) {
+                userPermissions = userWithRole.roleObj.permissions.map(
+                    (p: { name: string }) => p.name,
+                );
+            } else {
+                // Role record not in DB yet — use defaults (ensures deployment works before seed runs)
+                const roleKey = user.role as UserRole;
+                userPermissions = roleDefaultPermissions[roleKey] ?? [];
+                logger.warn(
+                    `Role ${user.role} not found in DB for user ${user.email} — using default permissions`,
+                );
+            }
 
             // Store permissions in request for downstream use
             req.userPermissions = userPermissions;

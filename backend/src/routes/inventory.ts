@@ -1205,4 +1205,186 @@ router.patch(
     },
 );
 
+/**
+ * POST /inventory/transfer
+ * Transfer stock from one site to another
+ */
+router.post(
+    "/transfer",
+    authenticate,
+    requirePermission("inventory:create"),
+    async (req: Request, res: Response): Promise<void> => {
+        try {
+            const user = req.user!;
+            const { fromSiteId, toSiteId, itemId, quantity, reason } = req.body;
+
+            if (!fromSiteId || !toSiteId || !itemId || !quantity) {
+                res.status(400).json({ success: false, error: "Missing required fields: fromSiteId, toSiteId, itemId, quantity" });
+                return;
+            }
+
+            if (fromSiteId === toSiteId) {
+                res.status(400).json({ success: false, error: "Source and destination sites must be different" });
+                return;
+            }
+
+            const qty = Number(quantity);
+            if (isNaN(qty) || qty <= 0) {
+                res.status(400).json({ success: false, error: "Quantity must be a positive number" });
+                return;
+            }
+
+            // Find the inventory item at source site
+            const sourceItem = await prisma.inventoryItem.findUnique({
+                where: { id: itemId },
+                include: { site: { select: { id: true, code: true } } },
+            });
+
+            if (!sourceItem) {
+                res.status(404).json({ success: false, error: "Inventory item not found" });
+                return;
+            }
+
+            if (sourceItem.siteId !== fromSiteId) {
+                res.status(400).json({ success: false, error: "Item does not belong to the source site" });
+                return;
+            }
+
+            if (sourceItem.currentStock < qty) {
+                res.status(400).json({ success: false, error: `Insufficient stock. Available: ${sourceItem.currentStock} ${sourceItem.unit}` });
+                return;
+            }
+
+            // Check if same item (by code) exists at destination
+            let destItem = await prisma.inventoryItem.findUnique({
+                where: { siteId_code: { siteId: toSiteId, code: sourceItem.code } },
+            });
+
+            await prisma.$transaction(async (tx) => {
+                // Deduct from source
+                await tx.inventoryItem.update({
+                    where: { id: sourceItem.id },
+                    data: { currentStock: { decrement: qty } },
+                });
+
+                await tx.stockMovement.create({
+                    data: {
+                        type: "TRANSFER_OUT",
+                        quantity: qty,
+                        previousStock: sourceItem.currentStock,
+                        newStock: sourceItem.currentStock - qty,
+                        inventoryItemId: sourceItem.id,
+                        performedById: user.id,
+                        siteId: fromSiteId,
+                        reason: reason || "Site transfer",
+                        reference: `TRANSFER→${toSiteId}`,
+                    },
+                });
+
+                // Add to destination (create item if missing)
+                if (!destItem) {
+                    destItem = await tx.inventoryItem.create({
+                        data: {
+                            name: sourceItem.name,
+                            code: sourceItem.code,
+                            category: sourceItem.category,
+                            unit: sourceItem.unit,
+                            siteId: toSiteId,
+                            currentStock: qty,
+                            minimumStock: sourceItem.minimumStock,
+                        },
+                    });
+                } else {
+                    await tx.inventoryItem.update({
+                        where: { id: destItem.id },
+                        data: { currentStock: { increment: qty } },
+                    });
+                }
+
+                await tx.stockMovement.create({
+                    data: {
+                        type: "TRANSFER_IN",
+                        quantity: qty,
+                        previousStock: destItem.currentStock,
+                        newStock: destItem.currentStock + qty,
+                        inventoryItemId: destItem.id,
+                        performedById: user.id,
+                        siteId: toSiteId,
+                        reason: reason || "Site transfer",
+                        reference: `TRANSFER←${fromSiteId}`,
+                    },
+                });
+            });
+
+            logger.info(`Transfer ${qty} ${sourceItem.unit} of ${sourceItem.name} from site ${fromSiteId} to ${toSiteId} by ${user.email}`);
+            res.json({ success: true, message: "Stock transferred successfully" });
+        } catch (error) {
+            logger.error("Transfer error:", error);
+            res.status(500).json({ success: false, error: "Failed to transfer stock" });
+        }
+    },
+);
+
+/**
+ * POST /inventory/adjust
+ * Adjust (correct) stock count for an item
+ */
+router.post(
+    "/adjust",
+    authenticate,
+    requirePermission("inventory:create"),
+    async (req: Request, res: Response): Promise<void> => {
+        try {
+            const user = req.user!;
+            const { itemId, newQuantity, reason, notes } = req.body;
+
+            if (!itemId || newQuantity === undefined || !reason) {
+                res.status(400).json({ success: false, error: "Missing required fields: itemId, newQuantity, reason" });
+                return;
+            }
+
+            const newQty = Number(newQuantity);
+            if (isNaN(newQty) || newQty < 0) {
+                res.status(400).json({ success: false, error: "newQuantity must be 0 or positive" });
+                return;
+            }
+
+            const item = await prisma.inventoryItem.findUnique({ where: { id: itemId } });
+            if (!item) {
+                res.status(404).json({ success: false, error: "Inventory item not found" });
+                return;
+            }
+
+            const diff = newQty - item.currentStock;
+            const movementType = "ADJUSTMENT";
+
+            await prisma.$transaction(async (tx) => {
+                await tx.inventoryItem.update({
+                    where: { id: itemId },
+                    data: { currentStock: newQty },
+                });
+                await tx.stockMovement.create({
+                    data: {
+                        type: movementType,
+                        quantity: Math.abs(diff),
+                        previousStock: item.currentStock,
+                        newStock: newQty,
+                        inventoryItemId: itemId,
+                        performedById: user.id,
+                        siteId: item.siteId,
+                        reason,
+                        notes,
+                    },
+                });
+            });
+
+            logger.info(`Inventory adjusted for ${item.name}: ${item.currentStock} → ${newQty} by ${user.email}`);
+            res.json({ success: true, message: "Inventory adjusted successfully", data: { previousStock: item.currentStock, newStock: newQty, diff } });
+        } catch (error) {
+            logger.error("Adjust error:", error);
+            res.status(500).json({ success: false, error: "Failed to adjust inventory" });
+        }
+    },
+);
+
 export default router;
