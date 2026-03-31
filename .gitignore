@@ -1,0 +1,26 @@
+# Dependencies
+node_modules/
+.npm
+
+# Build outputs - do not commit, Render will build these
+backend/dist/
+frontend/dist/
+
+# Environment files - NEVER commit real secrets
+.env
+backend/.env
+frontend/.env
+
+# Database files
+*.db
+*.db-journal
+dev.db
+
+# OS / Editor
+.DS_Store
+.vscode/
+.idea/
+*.log
+
+# Prisma
+backend/prisma/migrations/migration_lock.toml
