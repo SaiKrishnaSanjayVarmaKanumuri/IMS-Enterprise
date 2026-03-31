@@ -367,18 +367,18 @@ const Sidebar: React.FC = () => {
             {/* Desktop Sidebar */}
             <aside style={{
                 width: sidebarWidth,
-                minHeight: "100vh",
+                height: "100vh",
                 background: "#0f172a",
                 borderRight: "1px solid rgba(255,255,255,0.06)",
                 display: "flex",
                 flexDirection: "column",
-                position: "fixed",
+                position: "sticky",
                 top: 0,
-                left: 0,
-                bottom: 0,
+                flexShrink: 0,
                 transition: "width 0.25s ease",
                 zIndex: 100,
                 overflowX: "hidden",
+                overflowY: "auto",
             }} className="hidden md:flex">
                 {sidebarContent}
             </aside>

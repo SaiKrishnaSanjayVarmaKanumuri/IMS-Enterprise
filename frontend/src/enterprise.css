@@ -550,19 +550,15 @@ body {
 .po-detail-footer { padding: 1rem 1.5rem; border-top: 1px solid var(--ims-border); }
 
 /* ─── Sidebar Layout ─────────────────────────────────────────────────── */
-/* On md+, offset content by the sidebar */
-@media (min-width: 768px) {
-    /* Default (expanded = 240px) sidebar */
-    .sidebar-content { margin-left: 240px; transition: margin-left 0.25s ease; min-height: 100vh; }
-    /* Collapsed sidebar is 64px — overridden by JS inline on the sidebar */
-}
-/* On mobile, add top padding for the fixed 56px mobile bar */
+/* Sidebar is sticky in flexbox — no margin-left needed on desktop */
+/* On mobile, add top padding for the fixed 56px mobile top bar */
 @media (max-width: 767px) {
-    .sidebar-content { padding-top: 56px !important; }
+    .main-content { padding-top: 72px !important; }
 }
 /* Sidebar nav scrollbar */
 nav::-webkit-scrollbar { width: 4px; }
 nav::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
+
 
 /* ─── Home Dashboard Tiles ───────────────────────────────────────────── */
 .home-dashboard { animation: fadeIn 0.3s ease; }

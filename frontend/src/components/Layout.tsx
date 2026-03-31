@@ -4,21 +4,18 @@ import Sidebar from "./Sidebar";
 
 const Layout: React.FC = () => {
     return (
-        <div style={{ display: "flex", minHeight: "100vh", background: "#f8fafc" }}>
+        /* Outer flex container — sidebar + content side by side */
+        <div style={{ display: "flex", minHeight: "100vh", background: "#f1f5f9" }}>
             <Sidebar />
-            {/* Content area — offset by sidebar width on md+ */}
-            <main
-                className="sidebar-content"
-                style={{
-                    flex: 1,
-                    minWidth: 0,
-                    padding: "1.5rem",
-                    /* On mobile, add top padding for the fixed mobile bar */
-                }}
-            >
-                <div className="md-sidebar-offset">
-                    <Outlet />
-                </div>
+            {/* Main content — automatically fills space beside the sticky sidebar */}
+            <main style={{
+                flex: 1,
+                minWidth: 0,
+                padding: "1.75rem 2rem",
+                /* Mobile: add top padding for the fixed 56px mobile top bar */
+                paddingTop: "1.75rem",
+            }} className="main-content">
+                <Outlet />
             </main>
         </div>
     );
