@@ -73,7 +73,14 @@ const RequestForm: React.FC = () => {
         setError("");
 
         try {
-            const response = await apiClient.requests.create(data);
+            // Strip empty optional fields to avoid backend crash on new Date("")
+            const payload = {
+                ...data,
+                expectedDate: data.expectedDate?.trim() || undefined,
+                justification: data.justification?.trim() || undefined,
+            };
+
+            const response = await apiClient.requests.create(payload);
 
             if (response.data.success) {
                 navigate("/fm/requests");

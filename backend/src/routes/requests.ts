@@ -133,9 +133,10 @@ router.post(
                         targetSiteId: type === "SHIFTING" ? targetSiteId : null,
                         description,
                         justification,
-                        expectedDate: expectedDate
-                            ? new Date(expectedDate)
-                            : null,
+                        expectedDate:
+                            expectedDate && expectedDate.trim() !== ""
+                                ? new Date(expectedDate)
+                                : null,
                         priority: priority || "normal",
                     },
                 });
