@@ -173,6 +173,125 @@ router.get(
 );
 
 /**
+ * GET /inventory/history
+ * Get stock movement history
+ *
+ * NOTE: Must be declared before the "/:id" route below, otherwise Express
+ * matches "history" as an :id param and the request 404s.
+ */
+router.get(
+    "/history",
+    authenticate,
+    requirePermission("inventory:read:own"),
+    async (req: Request, res: Response): Promise<void> => {
+        try {
+            const user = req.user!;
+            const userPermissions = req.userPermissions || [];
+            const {
+                inventoryItemId,
+                siteId,
+                type,
+                startDate,
+                endDate,
+                page = "1",
+                limit = "50",
+            } = req.query;
+
+            const skip =
+                (parseInt(page as string) - 1) * parseInt(limit as string);
+            const take = parseInt(limit as string);
+
+            // Build where clause
+            const where: Record<string, unknown> = {};
+
+            if (inventoryItemId) {
+                where.inventoryItemId = inventoryItemId;
+            }
+
+            if (siteId) {
+                where.siteId = siteId;
+            } else if (!canAccessAllSites(user.role, userPermissions)) {
+                where.site = {
+                    assignedUsers: {
+                        some: { id: user.id },
+                    },
+                };
+            }
+
+            if (type) {
+                where.type = type;
+            }
+
+            if (startDate || endDate) {
+                where.createdAt = {};
+                if (startDate) {
+                    (where.createdAt as Record<string, Date>).gte = new Date(
+                        startDate as string,
+                    );
+                }
+                if (endDate) {
+                    (where.createdAt as Record<string, Date>).lte = new Date(
+                        endDate as string,
+                    );
+                }
+            }
+
+            const [movements, total] = await Promise.all([
+                prisma.stockMovement.findMany({
+                    where,
+                    include: {
+                        inventoryItem: {
+                            select: {
+                                id: true,
+                                name: true,
+                                code: true,
+                                unit: true,
+                            },
+                        },
+                        performedBy: {
+                            select: {
+                                id: true,
+                                firstName: true,
+                                lastName: true,
+                                email: true,
+                                role: true,
+                            },
+                        },
+                        site: {
+                            select: { id: true, name: true, code: true },
+                        },
+                    },
+                    orderBy: { createdAt: "desc" },
+                    skip,
+                    take,
+                }),
+                prisma.stockMovement.count({ where }),
+            ]);
+
+            res.json({
+                success: true,
+                data: {
+                    movements,
+                    pagination: {
+                        page: parseInt(page as string),
+                        limit: take,
+                        total,
+                        totalPages: Math.ceil(total / take),
+                    },
+                },
+            });
+        } catch (error) {
+            logger.error("Get stock history error:", error);
+            res.status(500).json({
+                success: false,
+                error: "Failed to fetch stock history",
+                code: "FETCH_HISTORY_ERROR",
+            });
+        }
+    },
+);
+
+/**
  * GET /inventory/:id
  * Get single inventory item
  */
@@ -687,122 +806,6 @@ router.get(
 );
 
 /**
- * GET /inventory/history
- * Get stock movement history
- */
-router.get(
-    "/history",
-    authenticate,
-    requirePermission("inventory:read:own"),
-    async (req: Request, res: Response): Promise<void> => {
-        try {
-            const user = req.user!;
-            const userPermissions = req.userPermissions || [];
-            const {
-                inventoryItemId,
-                siteId,
-                type,
-                startDate,
-                endDate,
-                page = "1",
-                limit = "50",
-            } = req.query;
-
-            const skip =
-                (parseInt(page as string) - 1) * parseInt(limit as string);
-            const take = parseInt(limit as string);
-
-            // Build where clause
-            const where: Record<string, unknown> = {};
-
-            if (inventoryItemId) {
-                where.inventoryItemId = inventoryItemId;
-            }
-
-            if (siteId) {
-                where.siteId = siteId;
-            } else if (!canAccessAllSites(user.role, userPermissions)) {
-                where.site = {
-                    assignedUsers: {
-                        some: { id: user.id },
-                    },
-                };
-            }
-
-            if (type) {
-                where.type = type;
-            }
-
-            if (startDate || endDate) {
-                where.createdAt = {};
-                if (startDate) {
-                    (where.createdAt as Record<string, Date>).gte = new Date(
-                        startDate as string,
-                    );
-                }
-                if (endDate) {
-                    (where.createdAt as Record<string, Date>).lte = new Date(
-                        endDate as string,
-                    );
-                }
-            }
-
-            const [movements, total] = await Promise.all([
-                prisma.stockMovement.findMany({
-                    where,
-                    include: {
-                        inventoryItem: {
-                            select: {
-                                id: true,
-                                name: true,
-                                code: true,
-                                unit: true,
-                            },
-                        },
-                        performedBy: {
-                            select: {
-                                id: true,
-                                firstName: true,
-                                lastName: true,
-                                email: true,
-                                role: true,
-                            },
-                        },
-                        site: {
-                            select: { id: true, name: true, code: true },
-                        },
-                    },
-                    orderBy: { createdAt: "desc" },
-                    skip,
-                    take,
-                }),
-                prisma.stockMovement.count({ where }),
-            ]);
-
-            res.json({
-                success: true,
-                data: {
-                    movements,
-                    pagination: {
-                        page: parseInt(page as string),
-                        limit: take,
-                        total,
-                        totalPages: Math.ceil(total / take),
-                    },
-                },
-            });
-        } catch (error) {
-            logger.error("Get stock history error:", error);
-            res.status(500).json({
-                success: false,
-                error: "Failed to fetch stock history",
-                code: "FETCH_HISTORY_ERROR",
-            });
-        }
-    },
-);
-
-/**
  * GET /inventory/:id/history
  * Get movement history for specific item
  */
@@ -1259,6 +1262,9 @@ router.post(
             let destItem = await prisma.inventoryItem.findUnique({
                 where: { siteId_code: { siteId: toSiteId, code: sourceItem.code } },
             });
+            // Capture destination stock BEFORE the transfer so the movement
+            // snapshot is accurate (0 when the item is created on the fly).
+            const destPreviousStock = destItem ? destItem.currentStock : 0;
 
             await prisma.$transaction(async (tx) => {
                 // Deduct from source
@@ -1305,8 +1311,8 @@ router.post(
                     data: {
                         type: "TRANSFER_IN",
                         quantity: qty,
-                        previousStock: destItem.currentStock,
-                        newStock: destItem.currentStock + qty,
+                        previousStock: destPreviousStock,
+                        newStock: destPreviousStock + qty,
                         inventoryItemId: destItem.id,
                         performedById: user.id,
                         siteId: toSiteId,
