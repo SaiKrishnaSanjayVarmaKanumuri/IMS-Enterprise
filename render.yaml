@@ -1,25 +1,24 @@
 services:
   - type: web
     name: ims-backend
-    env: node
-    buildCommand: "cd frontend && npm install && npm run build && cd ../backend && npm install && npx prisma generate && npm run build"
+    runtime: node
+    # Build the React app, build the backend, then sync the schema to the
+    # (external, free) Postgres and seed it. `prisma db push` is used instead of
+    # `migrate deploy` because the committed migrations are SQLite-flavored and
+    # would fail on Postgres. Seed is idempotent (upserts), so it is safe to run
+    # on every deploy — it also (re)grants the FRONT_MAN inventory permission.
+    buildCommand: "cd frontend && npm install --include=dev && npm run build && cd ../backend && npm install --include=dev && npx prisma generate && npm run build && npx prisma db push --accept-data-loss && npm run seed"
     startCommand: "cd backend && npm run start"
     envVars:
       - key: NODE_ENV
         value: production
+      # Set this in the Render dashboard to your free Neon Postgres connection
+      # string, e.g. postgresql://USER:PASSWORD@ep-xxxx.aws.neon.tech/ims?sslmode=require
       - key: DATABASE_URL
-        fromDatabase:
-          name: ims-db
-          property: connectionString
+        sync: false
       - key: JWT_SECRET
         generateValue: true
       - key: FRONTEND_URL
         value: "https://ims-backend.onrender.com"
       - key: PORT
         value: 3000
-
-databases:
-  - name: ims-db
-    databaseName: ims
-    user: ims_user
-    plan: free
