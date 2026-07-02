@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { apiClient } from "../../services/api";
+import { apiClient, downloadReport } from "../../services/api";
 import {
     InventoryItem,
     InventoryFilter,
@@ -84,6 +84,12 @@ const InventoryList: React.FC = () => {
             <div className="flex justify-between items-center">
                 <h1 className="text-2xl font-bold text-gray-900">Inventory</h1>
                 <div className="flex space-x-3">
+                    <button
+                        onClick={() => downloadReport("/reports/inventory/csv", `inventory-${Date.now()}.csv`)}
+                        className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700"
+                    >
+                        Export CSV
+                    </button>
                     <button
                         onClick={() => setShowHistory(!showHistory)}
                         className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700"

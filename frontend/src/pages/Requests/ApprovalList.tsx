@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { apiClient } from "../../services/api";
+import { apiClient, downloadReport } from "../../services/api";
 import { useAuth } from "../../contexts/AuthContext";
 import { STATUS_COLORS, STATUS_DISPLAY_NAMES } from "../../types";
 
@@ -134,9 +134,17 @@ const ApprovalList: React.FC = () => {
 
     return (
         <div className="space-y-6">
-            <h1 className="text-2xl font-bold text-gray-900">
-                {getPageTitle()}
-            </h1>
+            <div className="flex justify-between items-center">
+                <h1 className="text-2xl font-bold text-gray-900">
+                    {getPageTitle()}
+                </h1>
+                <button
+                    onClick={() => downloadReport("/reports/requests/csv", `requests-${Date.now()}.csv`)}
+                    className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700"
+                >
+                    Export CSV
+                </button>
+            </div>
 
             {requests.length === 0 ? (
                 <div className="bg-white rounded-lg shadow p-6 text-center">

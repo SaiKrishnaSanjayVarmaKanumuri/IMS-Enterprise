@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { apiClient } from "../../services/api";
+import { apiClient, downloadReport } from "../../services/api";
 
 interface AuditLog {
     id: string;
@@ -80,7 +80,15 @@ const AuditLogs: React.FC = () => {
 
     return (
         <div className="space-y-6">
-            <h1 className="text-2xl font-bold text-gray-900">Audit Logs</h1>
+            <div className="flex justify-between items-center">
+                <h1 className="text-2xl font-bold text-gray-900">Audit Logs</h1>
+                <button
+                    onClick={() => downloadReport("/reports/audit-logs/csv", `audit-logs-${Date.now()}.csv`)}
+                    className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700"
+                >
+                    Export CSV
+                </button>
+            </div>
 
             {/* Filters */}
             <div className="bg-white rounded-lg shadow p-4">

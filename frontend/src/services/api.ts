@@ -480,4 +480,21 @@ export const apiClient = {
     health: () => api.get<ApiResponse<null>>("/health"),
 };
 
+/**
+ * Download a report through the authenticated axios instance (so the JWT is
+ * sent), then save the streamed file. A plain <a href> would bypass the auth
+ * header and 401.
+ */
+export async function downloadReport(path: string, filename: string): Promise<void> {
+    const res = await api.get(path, { responseType: "blob" });
+    const url = URL.createObjectURL(res.data as Blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+}
+
 export default api;

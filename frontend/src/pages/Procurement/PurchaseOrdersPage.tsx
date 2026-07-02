@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Search, Download, Eye, CheckCircle, XCircle, Truck, Filter } from "lucide-react";
-import { apiClient } from "../../services/api";
+import { apiClient, downloadReport } from "../../services/api";
 
 interface PurchaseOrder {
     id: string;
@@ -93,13 +93,12 @@ const PurchaseOrdersPage = () => {
                     <p>{totalCount} order{totalCount !== 1 ? "s" : ""} to suppliers</p>
                 </div>
                 <div className="page-header-actions">
-                    <a
-                        href="/api/reports/purchase-orders/csv"
+                    <button
                         className="btn-secondary"
-                        download
+                        onClick={() => downloadReport("/reports/purchase-orders/csv", `supplier-orders-${Date.now()}.csv`)}
                     >
                         <Download size={16} /> Export CSV
-                    </a>
+                    </button>
                 </div>
             </div>
 
@@ -188,14 +187,13 @@ const PurchaseOrdersPage = () => {
                                                     <XCircle size={14} />
                                                 </button>
                                             )}
-                                            <a
-                                                href={`/api/reports/purchase-orders/${po.id}/pdf`}
+                                            <button
                                                 className="table-action-btn"
                                                 title="Download PDF"
-                                                download
+                                                onClick={() => downloadReport(`/reports/purchase-orders/${po.id}/pdf`, `${po.poNumber}.pdf`)}
                                             >
                                                 <Download size={14} />
-                                            </a>
+                                            </button>
                                         </div>
                                     </td>
                                 </tr>
@@ -273,9 +271,9 @@ const PurchaseOrdersPage = () => {
                             )}
                         </div>
                         <div className="po-detail-footer">
-                            <a href={`/api/reports/purchase-orders/${selectedPO.id}/pdf`} className="btn-primary" download>
+                            <button className="btn-primary" onClick={() => downloadReport(`/reports/purchase-orders/${selectedPO.id}/pdf`, `${selectedPO.poNumber}.pdf`)}>
                                 <Download size={15} /> Download PDF
-                            </a>
+                            </button>
                         </div>
                     </div>
                 </div>

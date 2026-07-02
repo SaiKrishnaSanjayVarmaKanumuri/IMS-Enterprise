@@ -1,19 +1,28 @@
 import { Router, Request, Response } from "express";
 import { PrismaClient } from "@prisma/client";
 import { authenticate } from "../middleware/auth.js";
+import { requireRole } from "../middleware/rbac.js";
 import PDFDocument from "pdfkit";
 import { createObjectCsvStringifier } from "csv-writer";
 
 const router = Router();
 const prisma = new PrismaClient();
 
-const auth = authenticate;
+// Roles that may see data across all sites (mirrors the list endpoints).
+const ALL_SITES_ROLES = ["ADMIN", "PROCUREMENT", "FINANCE"];
 
 // ─── Export Stock Valuation CSV ───────────────────────────────────────
 router.get("/inventory/csv", authenticate, async (req: Request, res: Response) => {
     try {
+        const user = req.user!;
         const { siteId } = req.query;
-        const where = siteId ? { siteId: String(siteId) } : {};
+        const where: Record<string, unknown> = {};
+        if (siteId) {
+            where.siteId = String(siteId);
+        } else if (!ALL_SITES_ROLES.includes(user.role)) {
+            // Non-privileged users only export inventory at their assigned sites.
+            where.site = { assignedUsers: { some: { id: user.id } } };
+        }
 
         const items = await prisma.inventoryItem.findMany({
             where,
@@ -62,7 +71,7 @@ router.get("/inventory/csv", authenticate, async (req: Request, res: Response) =
 });
 
 // ─── Export Purchase Orders CSV ───────────────────────────────────────
-router.get("/purchase-orders/csv", authenticate, async (req: Request, res: Response) => {
+router.get("/purchase-orders/csv", authenticate, requireRole("ADMIN"), async (req: Request, res: Response) => {
     try {
         const { siteId, status } = req.query;
         const where: Record<string, unknown> = {};
@@ -113,7 +122,7 @@ router.get("/purchase-orders/csv", authenticate, async (req: Request, res: Respo
 });
 
 // ─── Generate Purchase Order PDF ─────────────────────────────────────
-router.get("/purchase-orders/:id/pdf", authenticate, async (req: Request, res: Response) => {
+router.get("/purchase-orders/:id/pdf", authenticate, requireRole("ADMIN"), async (req: Request, res: Response) => {
     try {
         const po = await prisma.purchaseOrder.findUnique({
             where: { id: req.params.id },
@@ -203,10 +212,33 @@ router.get("/purchase-orders/:id/pdf", authenticate, async (req: Request, res: R
 // ─── Export Requests CSV ─────────────────────────────────────────────
 router.get("/requests/csv", authenticate, async (req: Request, res: Response) => {
     try {
+        const user = req.user!;
         const { siteId, status } = req.query;
-        const where: Record<string, unknown> = {};
-        if (siteId) where.siteId = String(siteId);
-        if (status) where.status = String(status);
+
+        // Scope by role, mirroring GET /requests, so users only export what they
+        // can already see.
+        let roleWhere: Record<string, unknown> = {};
+        switch (user.role) {
+            case "FRONT_MAN":
+                roleWhere = { requesterId: user.id };
+                break;
+            case "SITE_ENGINEER":
+                roleWhere = { site: { assignedUsers: { some: { id: user.id } } } };
+                break;
+            case "PROCUREMENT":
+                roleWhere = { OR: [{ status: "ENGINEER_APPROVED" }, { status: "PROCUREMENT_APPROVED" }, { status: "PROCUREMENT_REJECTED" }, { requesterId: user.id }] };
+                break;
+            case "FINANCE":
+                roleWhere = { OR: [{ status: "PROCUREMENT_APPROVED" }, { status: "FINANCE_APPROVED" }, { status: "FINANCE_REJECTED" }, { requesterId: user.id }] };
+                break;
+            default: // ADMIN
+                roleWhere = {};
+        }
+
+        const filters: Record<string, unknown>[] = [];
+        if (status) filters.push({ status: String(status) });
+        if (siteId && user.role === "ADMIN") filters.push({ siteId: String(siteId) });
+        const where = filters.length ? { AND: [roleWhere, ...filters] } : roleWhere;
 
         const requests = await prisma.request.findMany({
             where,
@@ -255,7 +287,7 @@ router.get("/requests/csv", authenticate, async (req: Request, res: Response) =>
 });
 
 // ─── Export Audit Logs CSV ───────────────────────────────────────────
-router.get("/audit-logs/csv", authenticate, async (req: Request, res: Response) => {
+router.get("/audit-logs/csv", authenticate, requireRole("ADMIN"), async (req: Request, res: Response) => {
     try {
         const logs = await prisma.auditLog.findMany({
             include: { user: { select: { firstName: true, lastName: true, email: true } } },
