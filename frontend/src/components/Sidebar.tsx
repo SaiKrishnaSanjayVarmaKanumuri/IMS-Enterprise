@@ -3,14 +3,11 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
     Home, BarChart2, Package, Layers, History, AlertTriangle,
     PlusCircle, FileText, CheckSquare, Building2, ShoppingCart,
-    DollarSign, Users, Shield, MapPin, LogOut, Menu, X,
-    ChevronRight, ArrowLeftRight, ClipboardCheck, Search, UserCircle,
-    Sun, Moon
+    DollarSign, Users, Shield, MapPin, LogOut, Menu,
+    ChevronRight, ArrowLeftRight, ClipboardCheck, Search, UserCircle
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { ROLE_DISPLAY_NAMES } from "../types";
-import NotificationsBell from "./NotificationsBell";
-import { getTheme, setTheme, Theme } from "../theme";
 
 interface NavItem {
     path: string;
@@ -25,19 +22,11 @@ interface NavGroup {
     items: NavItem[];
 }
 
-const Sidebar: React.FC = () => {
+const Sidebar: React.FC<{ mobileOpen: boolean; setMobileOpen: (v: boolean) => void }> = ({ mobileOpen, setMobileOpen }) => {
     const { user, logout, hasRole } = useAuth();
     const location = useLocation();
     const navigate = useNavigate();
     const [collapsed, setCollapsed] = useState(false);
-    const [mobileOpen, setMobileOpen] = useState(false);
-    const [theme, setThemeState] = useState<Theme>(getTheme());
-
-    const toggleTheme = () => {
-        const next: Theme = theme === "dark" ? "light" : "dark";
-        setTheme(next);
-        setThemeState(next);
-    };
 
     const handleLogout = async () => {
         await logout();
@@ -332,7 +321,6 @@ const Sidebar: React.FC = () => {
                             </div>
                             <div style={{ fontSize: "0.6875rem", color: "#64748b" }}>{roleName}</div>
                         </div>
-                        <NotificationsBell direction="up" />
                     </div>
                 ) : (
                     <div style={{ display: "flex", justifyContent: "center", marginBottom: "0.5rem" }}>
@@ -344,15 +332,6 @@ const Sidebar: React.FC = () => {
                         }}>{userInitials}</div>
                     </div>
                 )}
-                <button
-                    onClick={toggleTheme}
-                    className="theme-toggle"
-                    title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
-                    style={{ justifyContent: collapsed ? "center" : "center" }}
-                >
-                    {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
-                    {!collapsed && (theme === "dark" ? "Light mode" : "Dark mode")}
-                </button>
                 <button
                     onClick={handleLogout}
                     title="Logout"
@@ -401,45 +380,9 @@ const Sidebar: React.FC = () => {
                 zIndex: 100,
                 overflowX: "hidden",
                 overflowY: "auto",
-            }} className="hidden md:flex">
+            }} className="ims-desktop-sidebar">
                 {sidebarContent}
             </aside>
-
-            {/* Mobile top bar */}
-            <div className="md:hidden" style={{
-                position: "fixed",
-                top: 0,
-                left: 0,
-                right: 0,
-                height: 56,
-                background: "#0f172a",
-                borderBottom: "1px solid rgba(255,255,255,0.06)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                padding: "0 1rem",
-                zIndex: 200,
-            }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "0.625rem" }}>
-                    <div style={{
-                        width: 28, height: 28,
-                        background: "linear-gradient(135deg,#6366f1,#4f46e5)",
-                        borderRadius: 6,
-                        display: "flex", alignItems: "center", justifyContent: "center",
-                        fontWeight: 800, fontSize: "0.75rem", color: "#fff",
-                    }}>IMS</div>
-                    <span style={{ fontSize: "0.9375rem", fontWeight: 700, color: "#f1f5f9" }}>Enterprise</span>
-                </div>
-                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                    <NotificationsBell direction="down" />
-                    <button
-                        onClick={() => setMobileOpen(!mobileOpen)}
-                        style={{ background: "none", border: "none", color: "#94a3b8", padding: 6, cursor: "pointer" }}
-                    >
-                        {mobileOpen ? <X size={22} /> : <Menu size={22} />}
-                    </button>
-                </div>
-            </div>
 
             {/* Mobile drawer */}
             {mobileOpen && (
