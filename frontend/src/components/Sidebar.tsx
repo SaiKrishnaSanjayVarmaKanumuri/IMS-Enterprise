@@ -42,15 +42,13 @@ const Sidebar: React.FC = () => {
     // ── Main ───────────────────────────────
     const mainItems: NavItem[] = [
         { path: "/", label: "Home", icon: <Home size={20} />, color: "#6366f1" },
-        { path: "/analytics", label: "Analytics", icon: <BarChart2 size={20} />, color: "#22d3ee" },
         { path: "/profile", label: "My Profile & Sites", icon: <UserCircle size={20} />, color: "#f472b6" },
     ];
     groups.push({ title: "Main", items: mainItems });
 
-    // ── Inventory ──────────────────────────
+    // ── Inventory (core: no product catalog) ─
     const inventoryItems: NavItem[] = [
         { path: "/inventory", label: "Stock Levels", icon: <Package size={20} />, color: "#10b981" },
-        { path: "/products", label: "Product Catalog", icon: <Layers size={20} />, color: "#8b5cf6" },
         { path: "/inventory/history", label: "Stock History", icon: <History size={20} />, color: "#64748b" },
         { path: "/inventory/alerts", label: "Low Stock Alerts", icon: <AlertTriangle size={20} />, color: "#f59e0b" },
         { path: "/inventory/transfer", label: "Transfer Stock", icon: <ArrowLeftRight size={20} />, color: "#06b6d4" },
@@ -78,15 +76,11 @@ const Sidebar: React.FC = () => {
         });
     }
 
-    if (hasRole("PROCUREMENT") || hasRole("ADMIN")) {
+    if (hasRole("PROCUREMENT")) {
         groups.push({
-            title: "Procurement",
+            title: "Approvals",
             items: [
-                { path: "/vendors", label: "Vendors", icon: <Building2 size={20} />, color: "#a855f7" },
-                { path: "/purchase-orders", label: "Purchase Orders", icon: <ShoppingCart size={20} />, color: "#3b82f6" },
-                ...(hasRole("PROCUREMENT")
-                    ? [{ path: "/procurement/requests", label: "Approve Requests", icon: <CheckSquare size={20} />, color: "#22c55e" }]
-                    : []),
+                { path: "/procurement/requests", label: "Approve Requests", icon: <CheckSquare size={20} />, color: "#22c55e" },
             ],
         });
     }
@@ -107,6 +101,17 @@ const Sidebar: React.FC = () => {
                 { path: "/admin/users", label: "Manage Users", icon: <Users size={20} />, color: "#6366f1" },
                 { path: "/admin/roles", label: "Roles & Permissions", icon: <Shield size={20} />, color: "#f43f5e" },
                 { path: "/admin/sites", label: "Sites", icon: <MapPin size={20} />, color: "#f97316" },
+            ],
+        });
+
+        // ── Advanced (enterprise features, kept behind the admin boundary) ──
+        groups.push({
+            title: "Advanced",
+            items: [
+                { path: "/analytics", label: "Analytics", icon: <BarChart2 size={20} />, color: "#22d3ee" },
+                { path: "/products", label: "Item Catalog", icon: <Layers size={20} />, color: "#8b5cf6" },
+                { path: "/vendors", label: "Suppliers", icon: <Building2 size={20} />, color: "#a855f7" },
+                { path: "/purchase-orders", label: "Supplier Orders", icon: <ShoppingCart size={20} />, color: "#3b82f6" },
             ],
         });
     }

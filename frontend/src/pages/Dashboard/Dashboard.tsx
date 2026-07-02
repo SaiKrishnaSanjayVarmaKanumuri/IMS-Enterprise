@@ -3,201 +3,272 @@ import { Link } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
 import { apiClient } from "../../services/api";
 import {
-    Package, BarChart2, AlertTriangle, ShoppingCart, CheckSquare,
-    Building2, PlusCircle, FileText, DollarSign, Users, ArrowLeftRight,
-    ClipboardCheck, Layers, TrendingUp, Clock
+    Package, AlertTriangle, CheckSquare, PlusCircle, FileText,
+    Users, MapPin, ArrowLeftRight, ClipboardCheck, History, ArrowRight
 } from "lucide-react";
 
-interface KPIData {
-    totalInventoryValue?: number;
-    lowStockCount?: number;
-    pendingRequests?: number;
-    openPurchaseOrders?: number;
-    fulfillmentRate?: number;
-    totalItems?: number;
-    activeVendors?: number;
-    monthlySpend?: number;
+/**
+ * Role-based home screens.
+ *
+ * Design goal: each role lands on ONE clear primary action ("hero"), backed by
+ * a live count, plus a short row of CORE secondary actions. We intentionally do
+ * NOT surface enterprise features (purchase orders, vendors, product catalog,
+ * tax fields) here — the mental model stays: Sites → Items → Requests → Stock.
+ */
+
+// Count role-scoped requests (backend already filters by role). limit=1 so we
+// only pay for the pagination total, not the rows.
+async function countRequests(status?: string): Promise<number> {
+    try {
+        const params: Record<string, unknown> = { limit: 1 };
+        if (status) params.status = status;
+        const r = await apiClient.requests.list(params);
+        const data = r.data.data as { pagination?: { total?: number } };
+        return data?.pagination?.total ?? 0;
+    } catch {
+        return 0;
+    }
 }
+
+async function countLowStock(): Promise<number> {
+    try {
+        const r = await apiClient.inventory.getLowStockAlerts();
+        const data = r.data.data as { lowStockItems?: unknown[] };
+        return data?.lowStockItems?.length ?? 0;
+    } catch {
+        return 0;
+    }
+}
+
+interface Tile {
+    label: string;
+    icon: React.ReactNode;
+    path: string;
+    color: string;
+    bg: string;
+    count?: number | null;
+}
+
+const SecondaryTiles: React.FC<{ tiles: Tile[] }> = ({ tiles }) => (
+    <div className="home-tiles-grid">
+        {tiles.map((t) => (
+            <Link
+                key={t.path}
+                to={t.path}
+                className="home-tile"
+                style={{ "--tile-color": t.color, "--tile-bg": t.bg } as React.CSSProperties}
+            >
+                <div className="home-tile-icon">{t.icon}</div>
+                <div className="home-tile-body">
+                    {t.count != null && <div className="home-tile-count">{t.count.toLocaleString()}</div>}
+                    <div className="home-tile-label">{t.label}</div>
+                </div>
+            </Link>
+        ))}
+    </div>
+);
+
+interface HeroProps {
+    color: string;
+    icon: React.ReactNode;
+    headline: string;
+    sub: string;
+    ctaLabel: string;
+    ctaPath: string;
+}
+
+const Hero: React.FC<HeroProps> = ({ color, icon, headline, sub, ctaLabel, ctaPath }) => (
+    <Link to={ctaPath} className="home-hero" style={{ "--hero-color": color } as React.CSSProperties}>
+        <div className="home-hero-icon">{icon}</div>
+        <div className="home-hero-text">
+            <h2>{headline}</h2>
+            <p>{sub}</p>
+        </div>
+        <span className="home-hero-cta">
+            {ctaLabel} <ArrowRight size={18} />
+        </span>
+    </Link>
+);
+
+const Greeting: React.FC<{ title: string; subtitle: string }> = ({ title, subtitle }) => (
+    <div className="home-greeting">
+        <h1>{title}</h1>
+        <p>{subtitle}</p>
+    </div>
+);
 
 const Dashboard: React.FC = () => {
     const { hasRole } = useAuth();
-    if (hasRole("ADMIN")) return <AdminDashboard />;
-    if (hasRole("SITE_ENGINEER")) return <EngineerDashboard />;
-    if (hasRole("PROCUREMENT")) return <ProcurementDashboard />;
-    if (hasRole("FINANCE")) return <FinanceDashboard />;
-    if (hasRole("FRONT_MAN")) return <FMDashboard />;
+    if (hasRole("ADMIN")) return <AdminHome />;
+    if (hasRole("SITE_ENGINEER")) return <EngineerHome />;
+    if (hasRole("PROCUREMENT")) return <ProcurementHome />;
+    if (hasRole("FINANCE")) return <FinanceHome />;
+    if (hasRole("FRONT_MAN")) return <FMHome />;
     return (
         <div style={{ textAlign: "center", padding: "4rem", color: "#94a3b8" }}>
             <Package size={48} style={{ marginBottom: "1rem" }} />
-            <p>Your dashboard is loading...</p>
+            <p>Your home screen is loading…</p>
         </div>
     );
 };
 
-const AdminDashboard: React.FC = () => {
+// ─── Front Man: primary action = raise a request ──────────────────────────
+const FMHome: React.FC = () => {
     const { user } = useAuth();
-    const [kpis, setKpis] = useState<KPIData>({});
+    const [open, setOpen] = useState<number | null>(null);
 
     useEffect(() => {
-        apiClient.analytics.kpis().then(r => setKpis(r.data.data as KPIData)).catch(() => {});
+        countRequests("PENDING").then(setOpen);
     }, []);
 
-    const tiles = [
-        { label: "Stock Levels", icon: <Package size={26} />, path: "/inventory", color: "#10b981", bg: "rgba(16,185,129,0.15)", count: kpis.totalItems ?? "—", badge: null },
-        { label: "Low Stock Alerts", icon: <AlertTriangle size={26} />, path: "/inventory/alerts", color: "#f59e0b", bg: "rgba(245,158,11,0.15)", count: kpis.lowStockCount ?? 0, badge: kpis.lowStockCount ? String(kpis.lowStockCount) : null, badgeClass: "yellow" },
-        { label: "Analytics", icon: <BarChart2 size={26} />, path: "/analytics", color: "#22d3ee", bg: "rgba(34,211,238,0.15)", count: null, badge: null },
-        { label: "Product Catalog", icon: <Layers size={26} />, path: "/products", color: "#8b5cf6", bg: "rgba(139,92,246,0.15)", count: null, badge: null },
-        { label: "Vendors", icon: <Building2 size={26} />, path: "/vendors", color: "#a855f7", bg: "rgba(168,85,247,0.15)", count: kpis.activeVendors ?? "—", badge: null },
-        { label: "Purchase Orders", icon: <ShoppingCart size={26} />, path: "/purchase-orders", color: "#3b82f6", bg: "rgba(59,130,246,0.15)", count: kpis.openPurchaseOrders ?? 0, badge: kpis.openPurchaseOrders ? String(kpis.openPurchaseOrders) : null, badgeClass: "" },
-        { label: "Transfer Stock", icon: <ArrowLeftRight size={26} />, path: "/inventory/transfer", color: "#06b6d4", bg: "rgba(6,182,212,0.15)", count: null, badge: null },
-        { label: "Adjust Count", icon: <ClipboardCheck size={26} />, path: "/inventory/adjust", color: "#84cc16", bg: "rgba(132,204,22,0.15)", count: null, badge: null },
-        { label: "Manage Users", icon: <Users size={26} />, path: "/admin/users", color: "#6366f1", bg: "rgba(99,102,241,0.15)", count: null, badge: null },
-    ];
-
     return (
         <div className="home-dashboard">
-            <div className="home-greeting">
-                <h1>👋 Welcome back, {user?.firstName}!</h1>
-                <p>You have full admin access. Here's your operational overview.</p>
-            </div>
-
-            <div className="home-tiles-grid">
-                {tiles.map(t => (
-                    <Link
-                        key={t.path}
-                        to={t.path}
-                        className="home-tile"
-                        style={{ "--tile-color": t.color, "--tile-bg": t.bg } as React.CSSProperties}
-                    >
-                        {t.badge && <span className={`home-tile-badge ${t.badgeClass || ""}`}>{t.badge}</span>}
-                        <div className="home-tile-icon">{t.icon}</div>
-                        <div className="home-tile-body">
-                            {t.count !== null && <div className="home-tile-count">{typeof t.count === "number" ? t.count.toLocaleString() : t.count}</div>}
-                            <div className="home-tile-label">{t.label}</div>
-                        </div>
-                    </Link>
-                ))}
-            </div>
-
-            <div className="home-recent-section">
-                <div className="home-recent-header">
-                    <h3 style={{ display: "flex", alignItems: "center", gap: 8 }}><TrendingUp size={18} /> Quick Stats</h3>
-                </div>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(200px,1fr))", gap: "1px", background: "rgba(255,255,255,0.04)" }}>
-                    {[
-                        { label: "Inventory Value", value: `₹${(kpis.totalInventoryValue ?? 0).toLocaleString()}`, color: "#10b981" },
-                        { label: "Monthly Spend", value: `₹${(kpis.monthlySpend ?? 0).toLocaleString()}`, color: "#6366f1" },
-                        { label: "Fulfillment Rate", value: `${(kpis.fulfillmentRate ?? 0).toFixed(1)}%`, color: "#22d3ee" },
-                        { label: "Pending Requests", value: String(kpis.pendingRequests ?? 0), color: "#f59e0b" },
-                    ].map(s => (
-                        <div key={s.label} style={{ padding: "1.25rem", background: "var(--ims-surface)" }}>
-                            <div style={{ fontSize: "0.75rem", color: "#64748b", marginBottom: "0.375rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>{s.label}</div>
-                            <div style={{ fontSize: "1.5rem", fontWeight: 800, color: s.color }}>{s.value}</div>
-                        </div>
-                    ))}
-                </div>
-            </div>
-        </div>
-    );
-};
-
-const EngineerDashboard: React.FC = () => {
-    const { user } = useAuth();
-    return (
-        <div className="home-dashboard">
-            <div className="home-greeting">
-                <h1>👷 Hello, {user?.firstName}!</h1>
-                <p>Site Engineer — Review pending material requests from your team.</p>
-            </div>
-            <div className="home-tiles-grid">
-                {[
-                    { label: "Review Requests", icon: <CheckSquare size={26} />, path: "/engineer/approvals", color: "#22c55e", bg: "rgba(34,197,94,0.15)" },
-                    { label: "Stock Levels", icon: <Package size={26} />, path: "/inventory", color: "#10b981", bg: "rgba(16,185,129,0.15)" },
-                    { label: "Low Stock", icon: <AlertTriangle size={26} />, path: "/inventory/alerts", color: "#f59e0b", bg: "rgba(245,158,11,0.15)" },
-                    { label: "Analytics", icon: <BarChart2 size={26} />, path: "/analytics", color: "#22d3ee", bg: "rgba(34,211,238,0.15)" },
-                ].map(t => (
-                    <Link key={t.path} to={t.path} className="home-tile" style={{ "--tile-color": t.color, "--tile-bg": t.bg } as React.CSSProperties}>
-                        <div className="home-tile-icon">{t.icon}</div>
-                        <div className="home-tile-body"><div className="home-tile-label">{t.label}</div></div>
-                    </Link>
-                ))}
-            </div>
-        </div>
-    );
-};
-
-const ProcurementDashboard: React.FC = () => {
-    const { user } = useAuth();
-    return (
-        <div className="home-dashboard">
-            <div className="home-greeting">
-                <h1>🛒 Hello, {user?.firstName}!</h1>
-                <p>Procurement Manager — Manage vendors and purchase orders.</p>
-            </div>
-            <div className="home-tiles-grid">
-                {[
-                    { label: "Vendors", icon: <Building2 size={26} />, path: "/vendors", color: "#a855f7", bg: "rgba(168,85,247,0.15)" },
-                    { label: "Purchase Orders", icon: <ShoppingCart size={26} />, path: "/purchase-orders", color: "#3b82f6", bg: "rgba(59,130,246,0.15)" },
-                    { label: "Approve Requests", icon: <CheckSquare size={26} />, path: "/procurement/requests", color: "#22c55e", bg: "rgba(34,197,94,0.15)" },
-                    { label: "Stock Levels", icon: <Package size={26} />, path: "/inventory", color: "#10b981", bg: "rgba(16,185,129,0.15)" },
-                    { label: "Analytics", icon: <BarChart2 size={26} />, path: "/analytics", color: "#22d3ee", bg: "rgba(34,211,238,0.15)" },
-                    { label: "Low Stock", icon: <AlertTriangle size={26} />, path: "/inventory/alerts", color: "#f59e0b", bg: "rgba(245,158,11,0.15)" },
-                ].map(t => (
-                    <Link key={t.path} to={t.path} className="home-tile" style={{ "--tile-color": t.color, "--tile-bg": t.bg } as React.CSSProperties}>
-                        <div className="home-tile-icon">{t.icon}</div>
-                        <div className="home-tile-body"><div className="home-tile-label">{t.label}</div></div>
-                    </Link>
-                ))}
-            </div>
-        </div>
-    );
-};
-
-const FinanceDashboard: React.FC = () => {
-    const { user } = useAuth();
-    return (
-        <div className="home-dashboard">
-            <div className="home-greeting">
-                <h1>💰 Hello, {user?.firstName}!</h1>
-                <p>Finance Officer — Review and approve high-value purchase requests.</p>
-            </div>
-            <div className="home-tiles-grid">
-                {[
-                    { label: "Financial Review", icon: <DollarSign size={26} />, path: "/finance/approvals", color: "#10b981", bg: "rgba(16,185,129,0.15)" },
-                    { label: "Analytics", icon: <BarChart2 size={26} />, path: "/analytics", color: "#22d3ee", bg: "rgba(34,211,238,0.15)" },
-                    { label: "Stock Report", icon: <TrendingUp size={26} />, path: "/inventory", color: "#6366f1", bg: "rgba(99,102,241,0.15)" },
-                ].map(t => (
-                    <Link key={t.path} to={t.path} className="home-tile" style={{ "--tile-color": t.color, "--tile-bg": t.bg } as React.CSSProperties}>
-                        <div className="home-tile-icon">{t.icon}</div>
-                        <div className="home-tile-body"><div className="home-tile-label">{t.label}</div></div>
-                    </Link>
-                ))}
-            </div>
-        </div>
-    );
-};
-
-const FMDashboard: React.FC = () => {
-    const { user } = useAuth();
-    return (
-        <div className="home-dashboard">
-            <div className="home-greeting">
-                <h1>📋 Hello, {user?.firstName}!</h1>
-                <p>Front Man — Raise material requests and track your submissions.</p>
-            </div>
-            <div className="home-tiles-grid">
-                {[
-                    { label: "New Request", icon: <PlusCircle size={26} />, path: "/fm/requests/new", color: "#f97316", bg: "rgba(249,115,22,0.15)" },
+            <Greeting title={`Hello, ${user?.firstName}!`} subtitle="Need materials on site? Raise a request in seconds." />
+            <Hero
+                color="#f97316"
+                icon={<PlusCircle size={30} />}
+                headline="Raise a material request"
+                sub={open ? `${open} of your requests are awaiting approval.` : "Tell us what you need and where — we'll route it for approval."}
+                ctaLabel="New Request"
+                ctaPath="/fm/requests/new"
+            />
+            <SecondaryTiles
+                tiles={[
                     { label: "My Requests", icon: <FileText size={26} />, path: "/fm/requests", color: "#6366f1", bg: "rgba(99,102,241,0.15)" },
+                    { label: "Stock on Site", icon: <Package size={26} />, path: "/inventory", color: "#10b981", bg: "rgba(16,185,129,0.15)" },
+                    { label: "Stock History", icon: <History size={26} />, path: "/inventory/history", color: "#64748b", bg: "rgba(100,116,139,0.15)" },
+                ]}
+            />
+        </div>
+    );
+};
+
+// ─── Site Engineer: primary action = review requests waiting on them ───────
+const EngineerHome: React.FC = () => {
+    const { user } = useAuth();
+    const [waiting, setWaiting] = useState(0);
+    const [lowStock, setLowStock] = useState<number | null>(null);
+
+    useEffect(() => {
+        countRequests("PENDING").then(setWaiting);
+        countLowStock().then(setLowStock);
+    }, []);
+
+    return (
+        <div className="home-dashboard">
+            <Greeting title={`Hello, ${user?.firstName}!`} subtitle="Review your team's material requests and keep site stock healthy." />
+            <Hero
+                color="#22c55e"
+                icon={<CheckSquare size={30} />}
+                headline={waiting > 0 ? `${waiting} request${waiting === 1 ? "" : "s"} waiting for your review` : "You're all caught up"}
+                sub={waiting > 0 ? "Approve or reject requests from your sites." : "No requests are waiting for approval right now."}
+                ctaLabel="Review Requests"
+                ctaPath="/engineer/approvals"
+            />
+            <SecondaryTiles
+                tiles={[
+                    { label: "Stock on Site", icon: <Package size={26} />, path: "/inventory", color: "#10b981", bg: "rgba(16,185,129,0.15)" },
+                    { label: "Low Stock", icon: <AlertTriangle size={26} />, path: "/inventory/alerts", color: "#f59e0b", bg: "rgba(245,158,11,0.15)", count: lowStock },
+                    { label: "Stock History", icon: <History size={26} />, path: "/inventory/history", color: "#64748b", bg: "rgba(100,116,139,0.15)" },
+                ]}
+            />
+        </div>
+    );
+};
+
+// ─── Procurement: primary action = approve engineer-approved requests ──────
+const ProcurementHome: React.FC = () => {
+    const { user } = useAuth();
+    const [waiting, setWaiting] = useState(0);
+
+    useEffect(() => {
+        countRequests("ENGINEER_APPROVED").then(setWaiting);
+    }, []);
+
+    return (
+        <div className="home-dashboard">
+            <Greeting title={`Hello, ${user?.firstName}!`} subtitle="Approve requests that have cleared site-engineer review." />
+            <Hero
+                color="#3b82f6"
+                icon={<CheckSquare size={30} />}
+                headline={waiting > 0 ? `${waiting} request${waiting === 1 ? "" : "s"} ready for you` : "Nothing waiting on you"}
+                sub={waiting > 0 ? "Review and approve requests to move them forward." : "All engineer-approved requests have been handled."}
+                ctaLabel="Review Requests"
+                ctaPath="/procurement/requests"
+            />
+            <SecondaryTiles
+                tiles={[
                     { label: "Stock Levels", icon: <Package size={26} />, path: "/inventory", color: "#10b981", bg: "rgba(16,185,129,0.15)" },
-                    { label: "History", icon: <Clock size={26} />, path: "/inventory/history", color: "#64748b", bg: "rgba(100,116,139,0.15)" },
-                ].map(t => (
-                    <Link key={t.path} to={t.path} className="home-tile" style={{ "--tile-color": t.color, "--tile-bg": t.bg } as React.CSSProperties}>
-                        <div className="home-tile-icon">{t.icon}</div>
-                        <div className="home-tile-body"><div className="home-tile-label">{t.label}</div></div>
-                    </Link>
-                ))}
-            </div>
+                    { label: "Low Stock", icon: <AlertTriangle size={26} />, path: "/inventory/alerts", color: "#f59e0b", bg: "rgba(245,158,11,0.15)" },
+                ]}
+            />
+        </div>
+    );
+};
+
+// ─── Finance: primary action = approve procurement-approved requests ───────
+const FinanceHome: React.FC = () => {
+    const { user } = useAuth();
+    const [waiting, setWaiting] = useState(0);
+
+    useEffect(() => {
+        countRequests("PROCUREMENT_APPROVED").then(setWaiting);
+    }, []);
+
+    return (
+        <div className="home-dashboard">
+            <Greeting title={`Hello, ${user?.firstName}!`} subtitle="Give the final approval on requests that have a cost attached." />
+            <Hero
+                color="#10b981"
+                icon={<CheckSquare size={30} />}
+                headline={waiting > 0 ? `${waiting} request${waiting === 1 ? "" : "s"} awaiting final approval` : "No approvals pending"}
+                sub={waiting > 0 ? "Review the cost and approve or reject." : "Everything sent to finance has been reviewed."}
+                ctaLabel="Financial Review"
+                ctaPath="/finance/approvals"
+            />
+            <SecondaryTiles
+                tiles={[
+                    { label: "Stock Levels", icon: <Package size={26} />, path: "/inventory", color: "#10b981", bg: "rgba(16,185,129,0.15)" },
+                ]}
+            />
+        </div>
+    );
+};
+
+// ─── Admin: overview + jump to whatever needs attention ────────────────────
+const AdminHome: React.FC = () => {
+    const { user } = useAuth();
+    const [pending, setPending] = useState(0);
+    const [lowStock, setLowStock] = useState(0);
+
+    useEffect(() => {
+        countRequests("PENDING").then(setPending);
+        countLowStock().then(setLowStock);
+    }, []);
+
+    const heroLow = lowStock > 0;
+
+    return (
+        <div className="home-dashboard">
+            <Greeting title={`Welcome back, ${user?.firstName}!`} subtitle="Here's what needs attention across your sites." />
+            <Hero
+                color={heroLow ? "#f59e0b" : "#6366f1"}
+                icon={heroLow ? <AlertTriangle size={30} /> : <Package size={30} />}
+                headline={heroLow ? `${lowStock} item${lowStock === 1 ? "" : "s"} running low` : "Everything's stocked up"}
+                sub={heroLow ? "Check low-stock items and top them up." : `${pending} request${pending === 1 ? "" : "s"} currently pending across all sites.`}
+                ctaLabel={heroLow ? "View Low Stock" : "View Stock"}
+                ctaPath={heroLow ? "/inventory/alerts" : "/inventory"}
+            />
+            <SecondaryTiles
+                tiles={[
+                    { label: "Stock Levels", icon: <Package size={26} />, path: "/inventory", color: "#10b981", bg: "rgba(16,185,129,0.15)" },
+                    { label: "Low Stock", icon: <AlertTriangle size={26} />, path: "/inventory/alerts", color: "#f59e0b", bg: "rgba(245,158,11,0.15)", count: lowStock },
+                    { label: "Transfer Stock", icon: <ArrowLeftRight size={26} />, path: "/inventory/transfer", color: "#06b6d4", bg: "rgba(6,182,212,0.15)" },
+                    { label: "Adjust Count", icon: <ClipboardCheck size={26} />, path: "/inventory/adjust", color: "#84cc16", bg: "rgba(132,204,22,0.15)" },
+                    { label: "Manage Users", icon: <Users size={26} />, path: "/admin/users", color: "#6366f1", bg: "rgba(99,102,241,0.15)" },
+                    { label: "Sites", icon: <MapPin size={26} />, path: "/admin/sites", color: "#f97316", bg: "rgba(249,115,22,0.15)" },
+                ]}
+            />
         </div>
     );
 };

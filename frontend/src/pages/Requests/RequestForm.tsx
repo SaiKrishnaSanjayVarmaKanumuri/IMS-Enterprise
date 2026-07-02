@@ -26,6 +26,7 @@ const RequestForm: React.FC = () => {
     const navigate = useNavigate();
     const { } = useAuth();
     const [sites, setSites] = useState<Site[]>([]);
+    const [itemNames, setItemNames] = useState<string[]>([]);
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState("");
@@ -52,7 +53,7 @@ const RequestForm: React.FC = () => {
     const requestType = watch("type");
 
     useEffect(() => {
-        const fetchSites = async () => {
+        const fetchData = async () => {
             try {
                 const response = await apiClient.sites.list();
                 if (response.data.success) {
@@ -63,9 +64,20 @@ const RequestForm: React.FC = () => {
             } finally {
                 setLoading(false);
             }
+
+            // Suggest names of items already on site so people reuse the same
+            // wording instead of inventing new spellings. Best-effort only.
+            try {
+                const inv = await apiClient.inventory.list({ limit: 100 });
+                const items = (inv.data.data as { items?: { name: string }[] })?.items ?? [];
+                const unique = Array.from(new Set(items.map((i) => i.name).filter(Boolean))).sort();
+                setItemNames(unique);
+            } catch {
+                // no suggestions — form still works with free text
+            }
         };
 
-        fetchSites();
+        fetchData();
     }, []);
 
     const onSubmit = async (data: RequestFormData) => {
@@ -269,6 +281,12 @@ const RequestForm: React.FC = () => {
                         </button>
                     </div>
 
+                    <datalist id="item-name-suggestions">
+                        {itemNames.map((name) => (
+                            <option key={name} value={name} />
+                        ))}
+                    </datalist>
+
                     <div className="space-y-4">
                         {fields.map((field, index) => (
                             <div
@@ -281,6 +299,7 @@ const RequestForm: React.FC = () => {
                                             `items.${index}.itemName`,
                                             { required: "Item name required" },
                                         )}
+                                        list="item-name-suggestions"
                                         placeholder="Item name"
                                         className="block w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
                                     />

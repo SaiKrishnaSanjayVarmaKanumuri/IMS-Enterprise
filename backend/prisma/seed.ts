@@ -434,6 +434,7 @@ async function main() {
                     "requests:read:own",
                     "requests:update",
                     "requests:cancel",
+                    "inventory:read:own",
                 ],
             },
         },

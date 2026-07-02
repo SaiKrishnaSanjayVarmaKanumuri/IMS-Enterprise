@@ -5,16 +5,14 @@ import { authenticate } from "../middleware/auth.js";
 const router = Router();
 const prisma = new PrismaClient();
 
-const auth = authenticate;
-
 // ─── Get My Notifications ─────────────────────────────────────────────
 router.get("/", authenticate, async (req: Request, res: Response) => {
     try {
-        const user = (req as unknown as { user: { userId: string } }).user;
+        const userId = req.user!.id;
         const { isRead, page = 1, limit = 20 } = req.query;
         const skip = (Number(page) - 1) * Number(limit);
 
-        const where: Record<string, unknown> = { userId: user.userId };
+        const where: Record<string, unknown> = { userId };
         if (isRead !== undefined) where.isRead = isRead === "true";
 
         const [notifications, total, unreadCount] = await Promise.all([
@@ -25,7 +23,7 @@ router.get("/", authenticate, async (req: Request, res: Response) => {
                 orderBy: { createdAt: "desc" },
             }),
             prisma.notification.count({ where }),
-            prisma.notification.count({ where: { userId: user.userId, isRead: false } }),
+            prisma.notification.count({ where: { userId, isRead: false } }),
         ]);
 
         res.json({
@@ -44,9 +42,9 @@ router.get("/", authenticate, async (req: Request, res: Response) => {
 // ─── Mark Notification as Read ────────────────────────────────────────
 router.patch("/:id/read", authenticate, async (req: Request, res: Response) => {
     try {
-        const user = (req as unknown as { user: { userId: string } }).user;
+        const userId = req.user!.id;
         await prisma.notification.updateMany({
-            where: { id: req.params.id, userId: user.userId },
+            where: { id: req.params.id, userId },
             data: { isRead: true },
         });
         res.json({ success: true, message: "Notification marked as read" });
@@ -58,9 +56,9 @@ router.patch("/:id/read", authenticate, async (req: Request, res: Response) => {
 // ─── Mark All as Read ────────────────────────────────────────────────
 router.patch("/mark-all-read", authenticate, async (req: Request, res: Response) => {
     try {
-        const user = (req as unknown as { user: { userId: string } }).user;
+        const userId = req.user!.id;
         await prisma.notification.updateMany({
-            where: { userId: user.userId, isRead: false },
+            where: { userId, isRead: false },
             data: { isRead: true },
         });
         res.json({ success: true, message: "All notifications marked as read" });
@@ -72,9 +70,9 @@ router.patch("/mark-all-read", authenticate, async (req: Request, res: Response)
 // ─── Delete Notification ─────────────────────────────────────────────
 router.delete("/:id", authenticate, async (req: Request, res: Response) => {
     try {
-        const user = (req as unknown as { user: { userId: string } }).user;
+        const userId = req.user!.id;
         await prisma.notification.deleteMany({
-            where: { id: req.params.id, userId: user.userId },
+            where: { id: req.params.id, userId },
         });
         res.json({ success: true, message: "Notification deleted" });
     } catch (error) {

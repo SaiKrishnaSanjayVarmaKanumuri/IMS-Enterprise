@@ -119,7 +119,7 @@ const ApprovalList: React.FC = () => {
     const getPageTitle = () => {
         if (isFrontMan) return "My Requests";
         if (isEngineer) return "Site Requests";
-        if (isProcurement) return "Purchase Orders";
+        if (isProcurement) return "Requests to Approve";
         if (isFinance) return "Financial Review";
         return "Pending Approvals";
     };

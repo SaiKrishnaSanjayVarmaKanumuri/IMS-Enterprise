@@ -67,7 +67,7 @@ const PurchaseOrdersPage = () => {
     };
 
     const handleCancel = async (id: string) => {
-        if (!confirm("Cancel this purchase order?")) return;
+        if (!confirm("Cancel this supplier order?")) return;
         try { await apiClient.purchaseOrders.cancel(id); loadOrders(); } catch (e) { console.error(e); }
     };
 
@@ -89,8 +89,8 @@ const PurchaseOrdersPage = () => {
             {/* Header */}
             <div className="page-header">
                 <div>
-                    <h1>Purchase Orders</h1>
-                    <p>{totalCount} purchase order{totalCount !== 1 ? "s" : ""}</p>
+                    <h1>Supplier Orders</h1>
+                    <p>{totalCount} order{totalCount !== 1 ? "s" : ""} to suppliers</p>
                 </div>
                 <div className="page-header-actions">
                     <a
@@ -110,7 +110,7 @@ const PurchaseOrdersPage = () => {
                     <input
                         value={search}
                         onChange={e => setSearch(e.target.value)}
-                        placeholder="Search PO number, vendor..."
+                        placeholder="Search order #, supplier..."
                         className="search-input"
                     />
                 </div>
@@ -133,16 +133,16 @@ const PurchaseOrdersPage = () => {
             ) : filteredOrders.length === 0 ? (
                 <div className="empty-state">
                     <div className="empty-state-icon">📋</div>
-                    <h3>No purchase orders</h3>
-                    <p>Purchase orders will appear here once created through procurement workflows</p>
+                    <h3>No supplier orders</h3>
+                    <p>Orders you place with suppliers will appear here</p>
                 </div>
             ) : (
                 <div className="data-table-container">
                     <table className="data-table">
                         <thead>
                             <tr>
-                                <th>PO Number</th>
-                                <th>Vendor</th>
+                                <th>Order #</th>
+                                <th>Supplier</th>
                                 <th>Site</th>
                                 <th>Order Date</th>
                                 <th>Expected</th>
@@ -174,17 +174,17 @@ const PurchaseOrdersPage = () => {
                                                 <Eye size={14} />
                                             </button>
                                             {po.status === "DRAFT" && (
-                                                <button className="table-action-btn confirm" title="Confirm PO" onClick={() => handleConfirm(po.id)}>
+                                                <button className="table-action-btn confirm" title="Confirm order" onClick={() => handleConfirm(po.id)}>
                                                     <CheckCircle size={14} />
                                                 </button>
                                             )}
                                             {(po.status === "CONFIRMED" || po.status === "PARTIAL") && (
-                                                <button className="table-action-btn receive" title="Receive Goods" onClick={() => handleViewDetails(po)}>
+                                                <button className="table-action-btn receive" title="Mark delivery received" onClick={() => handleViewDetails(po)}>
                                                     <Truck size={14} />
                                                 </button>
                                             )}
                                             {po.status !== "RECEIVED" && po.status !== "CANCELLED" && (
-                                                <button className="table-action-btn danger" title="Cancel PO" onClick={() => handleCancel(po.id)}>
+                                                <button className="table-action-btn danger" title="Cancel order" onClick={() => handleCancel(po.id)}>
                                                     <XCircle size={14} />
                                                 </button>
                                             )}
@@ -219,7 +219,7 @@ const PurchaseOrdersPage = () => {
                         <div className="po-detail-body">
                             <div className="po-detail-grid">
                                 <div className="po-detail-section">
-                                    <h4>Vendor</h4>
+                                    <h4>Supplier</h4>
                                     <p>{selectedPO.vendor.name}</p>
                                     <span className="muted">{selectedPO.vendor.code}</span>
                                 </div>

@@ -42,16 +42,16 @@ const App: React.FC = () => {
 
             <Route path="/" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
                 <Route index element={<Dashboard />} />
-                <Route path="analytics" element={<AnalyticsDashboard />} />
+                <Route path="analytics" element={<ProtectedRoute allowedRoles={["ADMIN"]}><AnalyticsDashboard /></ProtectedRoute>} />
                 <Route path="inventory" element={<InventoryList />} />
                 <Route path="inventory/history" element={<StockHistory />} />
                 <Route path="inventory/alerts" element={<LowStockAlerts />} />
                 <Route path="inventory/transfer" element={<StockTransfer />} />
                 <Route path="inventory/adjust" element={<InventoryAdjust />} />
                 <Route path="profile" element={<MyProfile />} />
-                <Route path="products" element={<ProtectedRoute allowedRoles={["ADMIN", "PROCUREMENT", "FRONT_MAN", "SITE_ENGINEER"]}><ProductsPage /></ProtectedRoute>} />
-                <Route path="vendors" element={<ProtectedRoute allowedRoles={["ADMIN", "PROCUREMENT"]}><VendorsPage /></ProtectedRoute>} />
-                <Route path="purchase-orders" element={<ProtectedRoute allowedRoles={["ADMIN", "PROCUREMENT"]}><PurchaseOrdersPage /></ProtectedRoute>} />
+                <Route path="products" element={<ProtectedRoute allowedRoles={["ADMIN"]}><ProductsPage /></ProtectedRoute>} />
+                <Route path="vendors" element={<ProtectedRoute allowedRoles={["ADMIN"]}><VendorsPage /></ProtectedRoute>} />
+                <Route path="purchase-orders" element={<ProtectedRoute allowedRoles={["ADMIN"]}><PurchaseOrdersPage /></ProtectedRoute>} />
                 <Route path="admin/users" element={<ProtectedRoute allowedRoles={["ADMIN"]}><UserManagement /></ProtectedRoute>} />
                 <Route path="admin/roles" element={<ProtectedRoute allowedRoles={["ADMIN"]}><RoleManagement /></ProtectedRoute>} />
                 <Route path="admin/sites" element={<ProtectedRoute allowedRoles={["ADMIN"]}><SiteManagement /></ProtectedRoute>} />

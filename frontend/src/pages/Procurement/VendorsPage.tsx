@@ -50,6 +50,7 @@ const VendorFormModal = ({ vendor, onClose, onSave }: {
     });
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState("");
+    const [showAdvanced, setShowAdvanced] = useState(false);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -80,7 +81,7 @@ const VendorFormModal = ({ vendor, onClose, onSave }: {
         <div className="modal-overlay" onClick={onClose}>
             <div className="modal-container vendor-modal" onClick={e => e.stopPropagation()}>
                 <div className="modal-header">
-                    <h2>{vendor ? "Edit Vendor" : "Add New Vendor"}</h2>
+                    <h2>{vendor ? "Edit Supplier" : "Add New Supplier"}</h2>
                     <button className="modal-close" onClick={onClose}>×</button>
                 </div>
                 <form onSubmit={handleSubmit} className="vendor-form">
@@ -111,26 +112,34 @@ const VendorFormModal = ({ vendor, onClose, onSave }: {
                             <input value={form.state} onChange={e => setForm(p => ({ ...p, state: e.target.value }))} placeholder="Maharashtra" />
                         </div>
                         <div className="form-group">
-                            <label>GST Number</label>
-                            <input value={form.gstNumber} onChange={e => setForm(p => ({ ...p, gstNumber: e.target.value }))} placeholder="27AABCS1234A1Z5" />
-                        </div>
-                        <div className="form-group">
-                            <label>Payment Terms (days)</label>
-                            <input type="number" value={form.paymentTerms} onChange={e => setForm(p => ({ ...p, paymentTerms: e.target.value }))} min="0" max="365" />
-                        </div>
-                        <div className="form-group">
-                            <label>Credit Limit (₹)</label>
-                            <input type="number" value={form.creditLimit} onChange={e => setForm(p => ({ ...p, creditLimit: e.target.value }))} min="0" />
-                        </div>
-                        <div className="form-group">
                             <label>Rating (1-5)</label>
                             <input type="number" value={form.rating} onChange={e => setForm(p => ({ ...p, rating: e.target.value }))} min="1" max="5" step="0.1" />
                         </div>
                     </div>
+
+                    <button type="button" className="advanced-toggle" onClick={() => setShowAdvanced(s => !s)}>
+                        {showAdvanced ? "− Hide" : "+ Show"} tax &amp; payment details
+                    </button>
+                    {showAdvanced && (
+                        <div className="form-grid-2">
+                            <div className="form-group">
+                                <label>GST Number</label>
+                                <input value={form.gstNumber} onChange={e => setForm(p => ({ ...p, gstNumber: e.target.value }))} placeholder="27AABCS1234A1Z5" />
+                            </div>
+                            <div className="form-group">
+                                <label>Payment Terms (days)</label>
+                                <input type="number" value={form.paymentTerms} onChange={e => setForm(p => ({ ...p, paymentTerms: e.target.value }))} min="0" max="365" />
+                            </div>
+                            <div className="form-group">
+                                <label>Credit Limit (₹)</label>
+                                <input type="number" value={form.creditLimit} onChange={e => setForm(p => ({ ...p, creditLimit: e.target.value }))} min="0" />
+                            </div>
+                        </div>
+                    )}
                     <div className="modal-footer">
                         <button type="button" className="btn-secondary" onClick={onClose}>Cancel</button>
                         <button type="submit" className="btn-primary" disabled={saving}>
-                            {saving ? "Saving..." : vendor ? "Update Vendor" : "Add Vendor"}
+                            {saving ? "Saving..." : vendor ? "Update Supplier" : "Add Supplier"}
                         </button>
                     </div>
                 </form>
@@ -172,7 +181,7 @@ const VendorsPage = () => {
     };
 
     const handleDelete = async (id: string) => {
-        if (!confirm("Deactivate this vendor?")) return;
+        if (!confirm("Deactivate this supplier?")) return;
         try { await apiClient.vendors.delete(id); loadVendors(); } catch (e) { console.error(e); }
     };
 
@@ -181,11 +190,11 @@ const VendorsPage = () => {
             {/* Header */}
             <div className="page-header">
                 <div>
-                    <h1>Vendor Management</h1>
-                    <p>{totalCount} vendor{totalCount !== 1 ? "s" : ""} registered</p>
+                    <h1>Suppliers</h1>
+                    <p>{totalCount} supplier{totalCount !== 1 ? "s" : ""} registered</p>
                 </div>
                 <button className="btn-primary" onClick={() => { setEditVendor(null); setShowModal(true); }}>
-                    <Plus size={16} /> Add Vendor
+                    <Plus size={16} /> Add Supplier
                 </button>
             </div>
 
@@ -196,7 +205,7 @@ const VendorsPage = () => {
                     <input
                         value={search}
                         onChange={e => setSearch(e.target.value)}
-                        placeholder="Search vendors by name, code, city..."
+                        placeholder="Search suppliers by name, code, city..."
                         className="search-input"
                     />
                 </div>
@@ -209,10 +218,10 @@ const VendorsPage = () => {
             ) : vendors.length === 0 ? (
                 <div className="empty-state">
                     <div className="empty-state-icon">🏢</div>
-                    <h3>No vendors found</h3>
-                    <p>Add your first vendor to get started with procurement</p>
+                    <h3>No suppliers found</h3>
+                    <p>Add your first supplier to get started</p>
                     <button className="btn-primary" onClick={() => { setEditVendor(null); setShowModal(true); }}>
-                        <Plus size={16} /> Add First Vendor
+                        <Plus size={16} /> Add First Supplier
                     </button>
                 </div>
             ) : (
