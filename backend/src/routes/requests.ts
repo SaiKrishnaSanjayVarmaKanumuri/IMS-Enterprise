@@ -2,6 +2,7 @@ import { Router, Request, Response } from "express";
 import { authenticate } from "../middleware/auth.js";
 import { requirePermission, requireRole } from "../middleware/rbac.js";
 import { logger, logAudit } from "../utils/logger.js";
+import { notifyUsers, getActiveUserIdsByRole, getSiteEngineerIds } from "../utils/notify.js";
 import { PrismaClient } from "@prisma/client";
 import { v4 as uuidv4 } from "uuid";
 
@@ -182,6 +183,19 @@ router.post(
             logger.info(
                 `Request ${request.requestNumber} created by ${user.email}`,
             );
+
+            // Notify the site engineers who need to review this request
+            try {
+                const engineers = await getSiteEngineerIds(siteId);
+                await notifyUsers(engineers, {
+                    type: "REQUEST_CREATED",
+                    title: "New request to review",
+                    message: `${request.requestNumber} was raised at ${site.name} and needs your review.`,
+                    link: `/requests/${request.id}`,
+                });
+            } catch (notifyError) {
+                logger.error("Notify (request create) failed:", notifyError);
+            }
 
             // Fetch created request with items
             const fullRequest = await prisma.request.findUnique({
@@ -580,6 +594,55 @@ router.patch(
                 `Request ${request.requestNumber} approved by ${user.email} (${role})`,
             );
 
+            // Notify the next approver in the chain + keep the requester informed
+            try {
+                const link = `/requests/${id}`;
+                const num = request.requestNumber;
+                if (nextStatus === "ENGINEER_APPROVED") {
+                    await notifyUsers(await getActiveUserIdsByRole("PROCUREMENT"), {
+                        type: "REQUEST_APPROVED",
+                        title: "Request ready for procurement",
+                        message: `${num} was approved by the site engineer.`,
+                        link,
+                    });
+                    await notifyUsers([request.requesterId], {
+                        type: "REQUEST_APPROVED",
+                        title: "Request approved",
+                        message: `${num} was approved by the site engineer.`,
+                        link,
+                    });
+                } else if (nextStatus === "PROCUREMENT_APPROVED") {
+                    await notifyUsers(await getActiveUserIdsByRole("FINANCE"), {
+                        type: "REQUEST_APPROVED",
+                        title: "Request ready for finance",
+                        message: `${num} was approved by procurement.`,
+                        link,
+                    });
+                    await notifyUsers([request.requesterId], {
+                        type: "REQUEST_APPROVED",
+                        title: "Request approved",
+                        message: `${num} was approved by procurement.`,
+                        link,
+                    });
+                } else if (nextStatus === "FINANCE_APPROVED") {
+                    await notifyUsers([request.requesterId], {
+                        type: "REQUEST_APPROVED",
+                        title: "Request fully approved",
+                        message: `${num} has received final approval.`,
+                        link,
+                    });
+                } else if (nextStatus === "COMPLETED") {
+                    await notifyUsers([request.requesterId], {
+                        type: "REQUEST_COMPLETED",
+                        title: "Request completed",
+                        message: `${num} was completed by an administrator.`,
+                        link,
+                    });
+                }
+            } catch (notifyError) {
+                logger.error("Notify (request approve) failed:", notifyError);
+            }
+
             const updatedRequest = await prisma.request.findUnique({
                 where: { id },
                 include: {
@@ -738,6 +801,19 @@ router.patch(
             logger.info(
                 `Request ${request.requestNumber} rejected by ${user.email} (${role})`,
             );
+
+            // Notify the requester their request was rejected (with the reason)
+            try {
+                const roleLabel = role.replace(/_/g, " ").toLowerCase();
+                await notifyUsers([request.requesterId], {
+                    type: "REQUEST_REJECTED",
+                    title: "Request rejected",
+                    message: `${request.requestNumber} was rejected by ${roleLabel}: ${remarks}`,
+                    link: `/requests/${id}`,
+                });
+            } catch (notifyError) {
+                logger.error("Notify (request reject) failed:", notifyError);
+            }
 
             res.json({
                 success: true,

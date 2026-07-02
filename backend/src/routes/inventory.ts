@@ -3,6 +3,7 @@ import { body, validationResult } from "express-validator";
 import { authenticate } from "../middleware/auth.js";
 import { requirePermission, requireRole } from "../middleware/rbac.js";
 import { logger, logAudit } from "../utils/logger.js";
+import { notifyUsers, getSiteEngineerIds } from "../utils/notify.js";
 import { PrismaClient } from "@prisma/client";
 
 const router = Router();
@@ -657,6 +658,21 @@ router.post(
             logger.info(
                 `${type} ${quantity} ${item.unit} of ${item.name} at site ${item.site.code} by ${user.email}`,
             );
+
+            // Notify site engineers when this movement drops stock to/below minimum
+            if (item.minimumStock > 0 && newStock <= item.minimumStock) {
+                try {
+                    const engineers = await getSiteEngineerIds(item.site.id);
+                    await notifyUsers(engineers, {
+                        type: "LOW_STOCK",
+                        title: newStock === 0 ? "Out of stock" : "Low stock alert",
+                        message: `${item.name} (${item.code}) at ${item.site.code} is down to ${newStock} ${item.unit} (minimum ${item.minimumStock}).`,
+                        link: "/inventory/alerts",
+                    });
+                } catch (notifyError) {
+                    logger.error("Notify (low stock) failed:", notifyError);
+                }
+            }
 
             res.json({
                 success: true,
