@@ -3,11 +3,14 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
     Home, BarChart2, Package, Layers, History, AlertTriangle,
     PlusCircle, FileText, CheckSquare, Building2, ShoppingCart,
-    DollarSign, Users, Shield, MapPin, LogOut, Bell, Menu, X,
-    ChevronRight, ArrowLeftRight, ClipboardCheck, Search, UserCircle
+    DollarSign, Users, Shield, MapPin, LogOut, Menu, X,
+    ChevronRight, ArrowLeftRight, ClipboardCheck, Search, UserCircle,
+    Sun, Moon
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { ROLE_DISPLAY_NAMES } from "../types";
+import NotificationsBell from "./NotificationsBell";
+import { getTheme, setTheme, Theme } from "../theme";
 
 interface NavItem {
     path: string;
@@ -28,6 +31,13 @@ const Sidebar: React.FC = () => {
     const navigate = useNavigate();
     const [collapsed, setCollapsed] = useState(false);
     const [mobileOpen, setMobileOpen] = useState(false);
+    const [theme, setThemeState] = useState<Theme>(getTheme());
+
+    const toggleTheme = () => {
+        const next: Theme = theme === "dark" ? "light" : "dark";
+        setTheme(next);
+        setThemeState(next);
+    };
 
     const handleLogout = async () => {
         await logout();
@@ -322,10 +332,7 @@ const Sidebar: React.FC = () => {
                             </div>
                             <div style={{ fontSize: "0.6875rem", color: "#64748b" }}>{roleName}</div>
                         </div>
-                        <button title="Notifications" style={{ background: "none", border: "none", color: "#64748b", cursor: "pointer", padding: 4, position: "relative" }}>
-                            <Bell size={18} />
-                            <span style={{ position: "absolute", top: 2, right: 2, width: 7, height: 7, background: "#ef4444", borderRadius: "50%" }} />
-                        </button>
+                        <NotificationsBell direction="up" />
                     </div>
                 ) : (
                     <div style={{ display: "flex", justifyContent: "center", marginBottom: "0.5rem" }}>
@@ -337,6 +344,15 @@ const Sidebar: React.FC = () => {
                         }}>{userInitials}</div>
                     </div>
                 )}
+                <button
+                    onClick={toggleTheme}
+                    className="theme-toggle"
+                    title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+                    style={{ justifyContent: collapsed ? "center" : "center" }}
+                >
+                    {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
+                    {!collapsed && (theme === "dark" ? "Light mode" : "Dark mode")}
+                </button>
                 <button
                     onClick={handleLogout}
                     title="Logout"
@@ -415,10 +431,7 @@ const Sidebar: React.FC = () => {
                     <span style={{ fontSize: "0.9375rem", fontWeight: 700, color: "#f1f5f9" }}>Enterprise</span>
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                    <button style={{ background: "none", border: "none", color: "#64748b", padding: 6, cursor: "pointer", position: "relative" }}>
-                        <Bell size={20} />
-                        <span style={{ position: "absolute", top: 4, right: 4, width: 7, height: 7, background: "#ef4444", borderRadius: "50%" }} />
-                    </button>
+                    <NotificationsBell direction="down" />
                     <button
                         onClick={() => setMobileOpen(!mobileOpen)}
                         style={{ background: "none", border: "none", color: "#94a3b8", padding: 6, cursor: "pointer" }}

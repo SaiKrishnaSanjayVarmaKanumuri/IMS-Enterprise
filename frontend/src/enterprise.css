@@ -3,22 +3,40 @@
 
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 
-:root {
+:root, :root[data-theme="dark"] {
     --ims-primary: #6366f1;
     --ims-secondary: #22d3ee;
     --ims-bg: #0f172a;
     --ims-surface: #1e293b;
     --ims-surface2: #334155;
     --ims-border: rgba(255, 255, 255, 0.08);
+    --ims-hover: rgba(255, 255, 255, 0.06);
     --ims-text: #f1f5f9;
     --ims-muted: #94a3b8;
     --ims-success: #10b981;
     --ims-warning: #f59e0b;
     --ims-danger: #ef4444;
+    --ims-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+    /* Sidebar stays dark in both themes (premium dashboard pattern) */
+    --ims-sidebar: #0f172a;
+}
+
+:root[data-theme="light"] {
+    --ims-bg: #f1f5f9;
+    --ims-surface: #ffffff;
+    --ims-surface2: #f1f5f9;
+    --ims-border: rgba(15, 23, 42, 0.1);
+    --ims-hover: rgba(15, 23, 42, 0.04);
+    --ims-text: #0f172a;
+    --ims-muted: #64748b;
+    --ims-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
 }
 
 body {
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: var(--ims-bg);
+    color: var(--ims-text);
+    transition: background 0.25s ease, color 0.25s ease;
 }
 
 /* ─── Animations ────────────────────────────────────────────────────── */
@@ -42,7 +60,7 @@ body {
     font-weight: 700;
     color: var(--ims-text);
     margin: 0 0 4px;
-    background: linear-gradient(135deg, #f1f5f9, #94a3b8);
+    background: linear-gradient(135deg, var(--ims-text), var(--ims-muted));
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
@@ -94,7 +112,7 @@ body {
     align-items: center;
     gap: 0.5rem;
     padding: 0.5rem 1.25rem;
-    background: rgba(255,255,255,0.05);
+    background: var(--ims-surface2);
     color: var(--ims-text);
     border: 1px solid var(--ims-border);
     border-radius: 8px;
@@ -105,7 +123,7 @@ body {
     text-decoration: none;
     white-space: nowrap;
 }
-.btn-secondary:hover { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.2); }
+.btn-secondary:hover { background: var(--ims-hover); border-color: var(--ims-primary); }
 
 /* ─── Search & Filters ──────────────────────────────────────────────── */
 .search-bar-form, .filters-bar {
@@ -319,7 +337,7 @@ body {
     font-size: 1.75rem;
     font-weight: 700;
     margin: 0 0 4px;
-    background: linear-gradient(135deg, #f1f5f9, #94a3b8);
+    background: linear-gradient(135deg, var(--ims-text), var(--ims-muted));
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
@@ -730,4 +748,131 @@ nav::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius:
 .chip.yellow { background: rgba(245,158,11,0.12); color: #fbbf24; }
 .chip.red { background: rgba(239,68,68,0.12); color: #f87171; }
 .chip.cyan { background: rgba(34,211,238,0.12); color: #67e8f9; }
+
+/* ─── Layout: clear the fixed 56px mobile top bar (fixes button overlap) ── */
+@media (max-width: 767px) {
+    .main-content { padding-top: 4.75rem !important; }
+}
+
+/* ─── Dark-mode shim for Tailwind light utilities ─────────────────────────
+   The app mixes CSS-var components with Tailwind light classes (bg-white,
+   text-gray-*, border-gray-*). In dark mode we remap those utilities to the
+   theme tokens so those pages read correctly without rewriting each one.     */
+:root[data-theme="dark"] .bg-white { background-color: var(--ims-surface) !important; }
+:root[data-theme="dark"] .bg-gray-50 { background-color: var(--ims-surface2) !important; }
+:root[data-theme="dark"] .bg-gray-100 { background-color: var(--ims-surface2) !important; }
+:root[data-theme="dark"] .text-gray-900,
+:root[data-theme="dark"] .text-gray-800 { color: var(--ims-text) !important; }
+:root[data-theme="dark"] .text-gray-700,
+:root[data-theme="dark"] .text-gray-600 { color: #cbd5e1 !important; }
+:root[data-theme="dark"] .text-gray-500,
+:root[data-theme="dark"] .text-gray-400 { color: var(--ims-muted) !important; }
+:root[data-theme="dark"] .border-gray-200,
+:root[data-theme="dark"] .border-gray-300 { border-color: var(--ims-border) !important; }
+:root[data-theme="dark"] .divide-gray-200 > * { border-color: var(--ims-border) !important; }
+:root[data-theme="dark"] .hover\:bg-gray-50:hover,
+:root[data-theme="dark"] .hover\:bg-gray-100:hover { background-color: var(--ims-hover) !important; }
+:root[data-theme="dark"] .shadow,
+:root[data-theme="dark"] .shadow-md,
+:root[data-theme="dark"] .shadow-lg { box-shadow: var(--ims-shadow) !important; }
+
+/* ─── Theme toggle button ─────────────────────────────────────────────── */
+.theme-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    margin-bottom: 0.5rem;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 8px;
+    color: #cbd5e1;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+.theme-toggle:hover { background: rgba(255,255,255,0.1); color: #fff; }
+
+/* ─── Notifications dropdown ──────────────────────────────────────────── */
+.notif-wrap { position: relative; display: flex; }
+.notif-bell {
+    position: relative;
+    background: none;
+    border: none;
+    color: #94a3b8;
+    cursor: pointer;
+    padding: 4px;
+    display: flex;
+    border-radius: 8px;
+    transition: color 0.15s, background 0.15s;
+}
+.notif-bell:hover { color: #e2e8f0; background: rgba(255,255,255,0.06); }
+.notif-dot {
+    position: absolute;
+    top: -2px; right: -2px;
+    min-width: 16px; height: 16px;
+    padding: 0 4px;
+    background: var(--ims-danger);
+    color: #fff;
+    font-size: 0.625rem;
+    font-weight: 700;
+    line-height: 16px;
+    text-align: center;
+    border-radius: 999px;
+}
+.notif-panel {
+    position: fixed;
+    width: 320px;
+    max-width: calc(100vw - 2rem);
+    background: var(--ims-surface);
+    border: 1px solid var(--ims-border);
+    border-radius: 14px;
+    box-shadow: var(--ims-shadow);
+    z-index: 400;
+    overflow: hidden;
+    animation: fadeIn 0.15s ease;
+}
+.notif-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--ims-border);
+    font-size: 0.875rem;
+    font-weight: 700;
+    color: var(--ims-text);
+}
+.notif-head button {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: none;
+    border: none;
+    color: var(--ims-primary);
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+.notif-body { max-height: 360px; overflow-y: auto; }
+.notif-empty {
+    padding: 2.5rem 1rem;
+    text-align: center;
+    color: var(--ims-muted);
+    font-size: 1.5rem;
+}
+.notif-empty p { margin: 0.5rem 0 0.25rem; font-size: 0.9375rem; font-weight: 600; color: var(--ims-text); }
+.notif-empty span { font-size: 0.8125rem; color: var(--ims-muted); }
+.notif-item {
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--ims-border);
+    cursor: default;
+}
+.notif-item:last-child { border-bottom: none; }
+.notif-item.unread { background: rgba(99,102,241,0.06); }
+.notif-item-title { font-size: 0.8125rem; font-weight: 600; color: var(--ims-text); margin-bottom: 2px; }
+.notif-item-msg { font-size: 0.8125rem; color: var(--ims-muted); line-height: 1.4; }
+.notif-item-time { font-size: 0.6875rem; color: var(--ims-muted); margin-top: 4px; }
 

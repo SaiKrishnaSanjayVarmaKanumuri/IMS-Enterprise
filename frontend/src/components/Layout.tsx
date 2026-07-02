@@ -5,7 +5,7 @@ import Sidebar from "./Sidebar";
 const Layout: React.FC = () => {
     return (
         /* Outer flex container — sidebar + content side by side */
-        <div style={{ display: "flex", minHeight: "100vh", background: "#f1f5f9" }}>
+        <div style={{ display: "flex", minHeight: "100vh", background: "var(--ims-bg)" }}>
             <Sidebar />
             {/* Main content — automatically fills space beside the sticky sidebar */}
             <main style={{
